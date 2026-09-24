@@ -11,7 +11,7 @@
 
 <br/>
 
-> ✨ **Native Bionic Build** — satu file ELF murni, tanpa glibc, tanpa proot, tanpa container.
+> **Native Bionic Build** — satu file ELF murni, tanpa glibc, tanpa proot, tanpa container.
 > Ringan, cepat, dan langsung jalan di Termux.
 
 </div>
@@ -47,11 +47,11 @@ yang:
 
 | Fitur | Keterangan |
 |-------|------------|
-| 🧬 **Zero glibc** | Satu file ELF Bionic, tanpa ketergantungan glibc |
-| 🖥️ **TUI bawaan** | Antarmuka terminal penuh via `libopentui.so` |
-| 🚫 **Tanpa proot** | Tidak butuh container atau chroot |
-| ⚡ **Cepat** | Langsung dieksekusi, tanpa overhead wrapper |
-| 📦 **Mudah dipasang** | Cukup `dpkg -i` satu file |
+| **Zero glibc** | Satu file ELF Bionic, tanpa ketergantungan glibc |
+| **TUI bawaan** | Antarmuka terminal penuh via `libopentui.so` |
+| **Tanpa proot** | Tidak butuh container atau chroot |
+| **Cepat** | Langsung dieksekusi, tanpa overhead wrapper |
+| **Mudah dipasang** | Cukup `dpkg -i` satu file |
 
 ---
 
@@ -61,10 +61,10 @@ Sebelum memulai, pastikan perangkat Anda memenuhi syarat berikut:
 
 | Kebutuhan | Nilai | Cara Cek |
 |-----------|-------|----------|
-| 🏗️ **Arsitektur** | `aarch64` | `uname -m` |
-| 🤖 **Android** | API ≥ 28 (Android 9+) | — |
-| 📱 **Termux** | Versi terbaru | `pkg update` |
-| 🛠️ **Alat** | `curl`, `dpkg` | `pkg install curl` |
+| **Arsitektur** | `aarch64` | `uname -m` |
+| **Android** | API ≥ 28 (Android 9+) | — |
+| **Termux** | Versi terbaru | `pkg update` |
+| **Alat** | `curl`, `dpkg` | `pkg install curl` |
 
 ```sh
 # Cek arsitektur — harus menampilkan aarch64
@@ -84,11 +84,11 @@ Tersedia **dua versi utama** OpenCode. Pilih salah satu sesuai kebutuhan:
 
 | | v1 (1.18.x) | v2 (2.0.x) |
 |---|---|---|
-| **Status** | Jalur lama | 🚀 Mainline terbaru |
+| **Status** | Jalur lama | Mainline terbaru |
 | **Prefix paket** | `opencode1` | `opencode` |
-| **Direkomendasikan** | Untuk kompatibilitas | ✅ Untuk umum |
+| **Direkomendasikan** | Untuk kompatibilitas | Untuk umum |
 
-> ⚠️ **Catatan:** v1 dan v2 sama-sama ingin memakai perintah `opencode`.
+> **Catatan:** v1 dan v2 sama-sama ingin memakai perintah `opencode`.
 > Umumnya pasang **salah satu**. Jika ingin keduanya sekaligus, lihat
 > [bagian ini](#memasang-v1-dan-v2-berdampingan).
 
@@ -98,62 +98,62 @@ Tersedia **dua versi utama** OpenCode. Pilih salah satu sesuai kebutuhan:
 
 Semua file `.deb` berada di release **Push260922**.
 
-> 🔗 <https://github.com/Hope2333/opencode-termux/releases/tag/Push260922>
+> <https://github.com/Hope2333/opencode-termux/releases/tag/Push260922>
 
 ### Pilihan A — OpenCode v1 (1.18.32)
 
-> 💡 **Keterangan:** paket v1 memasang binary bernama `opencode1`. Sebuah
+> **Keterangan:** paket v1 memasang binary bernama `opencode1`. Sebuah
 > *symlink* dibuat agar bisa dipanggil dengan perintah `opencode`.
 
 ```sh
-# 1️⃣ Unduh
+# 1. Unduh
 cd ~
 curl -fL --retry 3 -o opencode1_1.18.32_aarch64.deb \
   "https://github.com/Hope2333/opencode-termux/releases/download/Push260922/opencode1_1.18.32_aarch64.deb"
 
-# 2️⃣ Periksa isi paket (opsional)
+# 2. Periksa isi paket (opsional)
 dpkg-deb -I opencode1_1.18.32_aarch64.deb    # metadata paket
 dpkg-deb -c opencode1_1.18.32_aarch64.deb    # daftar file di dalam paket
 
-# 3️⃣ Install
+# 3. Install
 dpkg -i opencode1_1.18.32_aarch64.deb
 
-# 4️⃣ Jadikan perintah `opencode`
+# 4. Jadikan perintah `opencode`
 ln -sf "$PREFIX/bin/opencode1" "$PREFIX/bin/opencode"
 
-# 5️⃣ Verifikasi
+# 5. Verifikasi
 opencode --version    # -> 1.18.32
 
-# 6️⃣ Bersihkan file installer
+# 6. Bersihkan file installer
 rm -f opencode1_1.18.32_aarch64.deb
 ```
 
 ### Pilihan B — OpenCode v2 (2.0.12)
 
-> 💡 **Keterangan:** paket v2 memasang binary yang sudah langsung bernama
+> **Keterangan:** paket v2 memasang binary yang sudah langsung bernama
 > `opencode`, tanpa langkah tambahan.
 
 ```sh
-# 1️⃣ Unduh
+# 1. Unduh
 cd ~
 curl -fL --retry 3 -o opencode_2.0.12_aarch64.deb \
   "https://github.com/Hope2333/opencode-termux/releases/download/Push260922/opencode_2.0.12_aarch64.deb"
 
-# 2️⃣ Periksa isi paket (opsional)
+# 2. Periksa isi paket (opsional)
 dpkg-deb -I opencode_2.0.12_aarch64.deb    # metadata paket
 dpkg-deb -c opencode_2.0.12_aarch64.deb    # daftar file di dalam paket
 
-# 3️⃣ Install
+# 3. Install
 dpkg -i opencode_2.0.12_aarch64.deb
 
-# 4️⃣ Verifikasi
+# 4. Verifikasi
 opencode --version    # -> opencode v2.0.12
 
-# 5️⃣ Bersihkan file installer
+# 5. Bersihkan file installer
 rm -f opencode_2.0.12_aarch64.deb
 ```
 
-> ℹ️ Versi v2 tersedia dari `2.0.0` sampai `2.0.12`. Untuk versi lain, ganti
+> Versi v2 tersedia dari `2.0.0` sampai `2.0.12`. Untuk versi lain, ganti
 > angka `2.0.12` pada nama file di semua perintah dan pada URL, misalnya
 > `opencode_2.0.10_aarch64.deb`.
 
@@ -162,13 +162,13 @@ rm -f opencode_2.0.12_aarch64.deb
 Selain instalasi manual, tersedia sumber paket resmi untuk install/update
 lewat `apt` atau `pacman`.
 
-**✨ Instalasi satu-baris** (atur source + install sekaligus):
+**Instalasi satu-baris** (atur source + install sekaligus):
 
 ```sh
 curl -fsSL https://hope2333.github.io/repo/install.sh | sh -s -- --install opencode
 ```
 
-**📦 Manual via apt:**
+**Manual via apt:**
 
 ```sh
 # Tambahkan source (sekali)
@@ -181,7 +181,7 @@ apt update && apt install opencode          # v2
 apt update && apt install opencode1         # v1
 ```
 
-> ℹ️ Indeks `Packages.gz` hanya melacak **versi terbaru** per paket.
+> Indeks `Packages.gz` hanya melacak **versi terbaru** per paket.
 > Untuk versi tertentu yang ingin di-*pin*, gunakan instalasi manual
 > (`dpkg -i`).
 
@@ -207,7 +207,7 @@ opencode --help       # menampilkan bantuan
 | v1 | `~/.config/opencode1` | `~/.local/share/opencode1` |
 | v2 | `~/.config/opencode` | `~/.local/share/opencode` |
 
-> 🔒 Data dan konfigurasi tiap versi **terpisah**, sehingga tidak saling
+> Data dan konfigurasi tiap versi **terpisah**, sehingga tidak saling
 > mengganggu.
 
 ---
@@ -283,12 +283,12 @@ Repository asli menyediakan beberapa varian paket:
 
 | Keluarga | Package | Keterangan |
 |----------|---------|------------|
-| 🟢 native (mainline) | `opencode` / `opencode1` | Zero-glibc bionic ELF, langsung dieksekusi |
-| 🟡 wrapper | `opencode-wrapper` / `opencode1-wrapper` | Wrapper glibc (butuh `glibc` + `openssl-glibc`) |
-| 🔵 compressed (UPX) | `opencode-compressed` / `opencode1-compressed` | UPX `--best`, lebih kecil, startup lebih lambat |
-| ⚪ standalone | `opencode-wrapper-standalone` | Versi beku untuk rollback |
+| native (mainline) | `opencode` / `opencode1` | Zero-glibc bionic ELF, langsung dieksekusi |
+| wrapper | `opencode-wrapper` / `opencode1-wrapper` | Wrapper glibc (butuh `glibc` + `openssl-glibc`) |
+| compressed (UPX) | `opencode-compressed` / `opencode1-compressed` | UPX `--best`, lebih kecil, startup lebih lambat |
+| standalone | `opencode-wrapper-standalone` | Versi beku untuk rollback |
 
-> ✅ Panduan ini berfokus pada keluarga **native** (disarankan).
+> Panduan ini berfokus pada keluarga **native** (disarankan).
 
 ### Riwayat Perubahan Nama Paket
 
@@ -305,7 +305,7 @@ Repository asli menyediakan beberapa varian paket:
 - **Build Termux** — [Hope2333/opencode-termux](https://github.com/Hope2333/opencode-termux)
 - **Wiki instalasi** — [hope2333.github.io](https://hope2333.github.io/wiki/opencode-termux/)
 
-> ℹ️ **Disclaimer:** Repository ini adalah **panduan instalasi** komunitas untuk
+> **Disclaimer:** Repository ini adalah **panduan instalasi** komunitas untuk
 > menghadirkan OpenCode di Termux. Repository ini **bukan** dibuat oleh tim
 > OpenCode, **tidak berafiliasi** dengan tim OpenCode, dan tidak didukung
 > (*endorsed*) oleh mereka.
