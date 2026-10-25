@@ -28,8 +28,9 @@
 - [Prasyarat](#prasyarat)
 - [Memilih Versi](#memilih-versi)
 - [Instalasi](#instalasi)
-  - [Pilihan A — OpenCode v1](#pilihan-a--opencode-v1-11832)
-  - [Pilihan B — OpenCode v2](#pilihan-b--opencode-v2-2012)
+  - [Script Installer (Otomatis)](#script-installer-otomatis)
+  - [Pilihan A — OpenCode v1](#pilihan-a--opencode-v1-1193)
+  - [Pilihan B — OpenCode v2](#pilihan-b--opencode-v2-2031)
   - [Pilihan C — Software Source](#pilihan-c--software-source-apt--pacman)
 - [Cara Penggunaan](#cara-penggunaan)
 - [Lokasi Data & Konfigurasi](#lokasi-data--konfigurasi)
@@ -55,7 +56,7 @@ yang:
 | **TUI bawaan** | Antarmuka terminal penuh via `libopentui.so` |
 | **Tanpa proot** | Tidak butuh container atau chroot |
 | **Cepat** | Langsung dieksekusi, tanpa overhead wrapper |
-| **Mudah dipasang** | Cukup `dpkg -i` satu file |
+| **Mudah dipasang** | Cukup `dpkg -i` satu file, atau pakai script installer |
 
 ---
 
@@ -69,6 +70,7 @@ Sebelum memulai, pastikan perangkat Anda memenuhi syarat berikut:
 | **Android** | API ≥ 28 (Android 9+) | — |
 | **Termux** | Versi terbaru | `pkg update` |
 | **Alat** | `curl`, `dpkg` | `pkg install curl` |
+| **Ruang kosong** | ± 200 MB | — |
 
 ```sh
 # Cek arsitektur — harus menampilkan aarch64
@@ -83,12 +85,12 @@ Tersedia **dua versi utama** OpenCode. Pilih salah satu sesuai kebutuhan:
 
 | Versi | Perintah | Versi Terbaru | File `.deb` |
 |:-----:|:--------:|:-------------:|:------------|
-| **v1** | `opencode` | `1.18.32` | `opencode1_1.18.32_aarch64.deb` |
-| **v2** | `opencode` | `2.0.12` | `opencode_2.0.12_aarch64.deb` |
+| **v1** | `opencode1` | `1.19.3` | `opencode1_1.19.3_aarch64.deb` |
+| **v2** | `opencode` | `2.0.31` | `opencode_2.0.31_aarch64.deb` |
 
-| | v1 (1.18.x) | v2 (2.0.x) |
+| | v1 (1.18.x – 1.19.x) | v2 (2.0.x) |
 |---|---|---|
-| **Status** | Jalur lama | Mainline terbaru |
+| **Status** | Jalur pemeliharaan | Mainline terbaru |
 | **Prefix paket** | `opencode1` | `opencode` |
 | **Direkomendasikan** | Untuk kompatibilitas | Untuk umum |
 
@@ -100,11 +102,56 @@ Tersedia **dua versi utama** OpenCode. Pilih salah satu sesuai kebutuhan:
 
 ## Instalasi
 
-Semua file `.deb` berada di release **Push260922**.
+Semua file `.deb` versi terbaru berada di release **Push261016**.
 
-> <https://github.com/Hope2333/opencode-termux/releases/tag/Push260922>
+> <https://github.com/Hope2333/opencode-termux/releases/tag/Push261016>
 
-### Pilihan A — OpenCode v1 (1.18.32)
+### Script Installer (Otomatis)
+
+Cara tercepat: pakai script [`install.sh`](./install.sh) dari repository
+ini. Script akan mengunduh paket dari release **Push261016**, memverifikasi
+**SHA256**-nya terhadap `SHA256SUMS.txt` resmi, memasangnya dengan
+`dpkg -i`, lalu memverifikasi hasilnya.
+
+**One-liner** (memasang v2 — bawaan):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh | bash
+```
+
+**Pilihan lain:**
+
+```sh
+# Memasang v1 saja
+curl -fsSL https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh | bash -s -- --v1
+
+# Memasang v1 + v2 berdampingan
+curl -fsSL https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh | bash -s -- --both
+
+# Memasang versi tertentu dari tag release tertentu
+curl -fsSL https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh | bash -s -- --version 2.0.27 --tag Push261013
+```
+
+Atau unduh dulu script-nya, lalu jalankan secara lokal:
+
+```sh
+curl -fsSL -o install.sh https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh
+bash install.sh --help
+```
+
+| Opsi | Keterangan |
+|------|------------|
+| `--v2` | Pasang OpenCode v2 (bawaan) |
+| `--v1` | Pasang OpenCode v1 saja (+ symlink `opencode`) |
+| `--both` | Pasang v1 + v2 berdampingan |
+| `--version <versi>` | Pasang versi tertentu (sesuaikan juga `--tag`) |
+| `--tag <tag>` | Tag release upstream (bawaan: `Push261016`) |
+| `--no-verify` | Lewati verifikasi SHA256 |
+| `--force-conflicts` | Teruskan `--force-conflicts` ke `dpkg` |
+| `--keep` | Simpan file `.deb` hasil unduhan |
+| `--uninstall <v1\|v2\|all>` | Copot pemasangan |
+
+### Pilihan A — OpenCode v1 (1.19.3)
 
 > **Keterangan:** paket v1 memasang binary bernama `opencode1`. Sebuah
 > *symlink* dibuat agar bisa dipanggil dengan perintah `opencode`.
@@ -112,27 +159,32 @@ Semua file `.deb` berada di release **Push260922**.
 ```sh
 # 1. Unduh
 cd ~
-curl -fL --retry 3 -o opencode1_1.18.32_aarch64.deb \
-  "https://github.com/Hope2333/opencode-termux/releases/download/Push260922/opencode1_1.18.32_aarch64.deb"
+curl -fL --retry 3 -o opencode1_1.19.3_aarch64.deb \
+  "https://github.com/Hope2333/opencode-termux/releases/download/Push261016/opencode1_1.19.3_aarch64.deb"
 
-# 2. Periksa isi paket (opsional)
-dpkg-deb -I opencode1_1.18.32_aarch64.deb    # metadata paket
-dpkg-deb -c opencode1_1.18.32_aarch64.deb    # daftar file di dalam paket
+# 2. Verifikasi checksum (disarankan)
+curl -fsSL -o SHA256SUMS.txt \
+  "https://github.com/Hope2333/opencode-termux/releases/download/Push261016/SHA256SUMS.txt"
+grep "opencode1_1.19.3_aarch64.deb" SHA256SUMS.txt | sha256sum -c -
 
-# 3. Install
-dpkg -i opencode1_1.18.32_aarch64.deb
+# 3. Periksa isi paket (opsional)
+dpkg-deb -I opencode1_1.19.3_aarch64.deb    # metadata paket
+dpkg-deb -c opencode1_1.19.3_aarch64.deb    # daftar file di dalam paket
 
-# 4. Jadikan perintah `opencode`
+# 4. Install
+dpkg -i opencode1_1.19.3_aarch64.deb
+
+# 5. Jadikan perintah `opencode`
 ln -sf "$PREFIX/bin/opencode1" "$PREFIX/bin/opencode"
 
-# 5. Verifikasi
-opencode --version    # -> 1.18.32
+# 6. Verifikasi
+opencode --version    # -> 1.19.3
 
-# 6. Bersihkan file installer
-rm -f opencode1_1.18.32_aarch64.deb
+# 7. Bersihkan file installer
+rm -f opencode1_1.19.3_aarch64.deb SHA256SUMS.txt
 ```
 
-### Pilihan B — OpenCode v2 (2.0.12)
+### Pilihan B — OpenCode v2 (2.0.31)
 
 > **Keterangan:** paket v2 memasang binary yang sudah langsung bernama
 > `opencode`, tanpa langkah tambahan.
@@ -140,26 +192,33 @@ rm -f opencode1_1.18.32_aarch64.deb
 ```sh
 # 1. Unduh
 cd ~
-curl -fL --retry 3 -o opencode_2.0.12_aarch64.deb \
-  "https://github.com/Hope2333/opencode-termux/releases/download/Push260922/opencode_2.0.12_aarch64.deb"
+curl -fL --retry 3 -o opencode_2.0.31_aarch64.deb \
+  "https://github.com/Hope2333/opencode-termux/releases/download/Push261016/opencode_2.0.31_aarch64.deb"
 
-# 2. Periksa isi paket (opsional)
-dpkg-deb -I opencode_2.0.12_aarch64.deb    # metadata paket
-dpkg-deb -c opencode_2.0.12_aarch64.deb    # daftar file di dalam paket
+# 2. Verifikasi checksum (disarankan)
+curl -fsSL -o SHA256SUMS.txt \
+  "https://github.com/Hope2333/opencode-termux/releases/download/Push261016/SHA256SUMS.txt"
+grep "opencode_2.0.31_aarch64.deb" SHA256SUMS.txt | sha256sum -c -
 
-# 3. Install
-dpkg -i opencode_2.0.12_aarch64.deb
+# 3. Periksa isi paket (opsional)
+dpkg-deb -I opencode_2.0.31_aarch64.deb    # metadata paket
+dpkg-deb -c opencode_2.0.31_aarch64.deb    # daftar file di dalam paket
 
-# 4. Verifikasi
-opencode --version    # -> opencode v2.0.12
+# 4. Install
+dpkg -i opencode_2.0.31_aarch64.deb
 
-# 5. Bersihkan file installer
-rm -f opencode_2.0.12_aarch64.deb
+# 5. Verifikasi
+opencode --version    # -> opencode v2.0.31
+
+# 6. Bersihkan file installer
+rm -f opencode_2.0.31_aarch64.deb SHA256SUMS.txt
 ```
 
-> Versi v2 tersedia dari `2.0.0` sampai `2.0.12`. Untuk versi lain, ganti
-> angka `2.0.12` pada nama file di semua perintah dan pada URL, misalnya
-> `opencode_2.0.10_aarch64.deb`.
+> Versi v2 tersedia dari `2.0.0` sampai `2.0.31`, dan v1 dari `1.18.8`
+> sampai `1.19.3`. Versi-versi itu tersebar di beberapa tag release —
+> untuk versi selain yang terbaru, ganti juga **tag** pada URL
+> (misalnya `2.0.27` ada di tag `Push261013`), atau pakai script
+> installer dengan opsi `--version` + `--tag`.
 
 ### Pilihan C — Software Source (apt / pacman)
 
@@ -187,7 +246,7 @@ apt update && apt install opencode1         # v1
 
 > Indeks `Packages.gz` hanya melacak **versi terbaru** per paket.
 > Untuk versi tertentu yang ingin di-*pin*, gunakan instalasi manual
-> (`dpkg -i`).
+> (`dpkg -i`) atau script installer.
 
 ---
 
@@ -223,6 +282,12 @@ dpkg -r opencode1     # jika memasang v1 (Pilihan A)
 dpkg -r opencode      # jika memasang v2 (Pilihan B)
 ```
 
+Atau lewat script installer:
+
+```sh
+bash install.sh --uninstall all
+```
+
 Jika sebelumnya membuat *symlink* untuk v1, hapus juga:
 
 ```sh
@@ -233,11 +298,22 @@ rm -f "$PREFIX/bin/opencode"
 
 ## Pemecahan Masalah
 
-### Android 14 ke bawah: `Bad system call` (SIGSYS)
+### Android lama: `Bad system call` (SIGSYS)
 
-Pada Android ≤ 14, seccomp sistem dapat memblokir syscall `close_range`
-(nr 436), sehingga OpenCode mati saat start dengan pesan
-*"Bad system call"*. Solusinya memakai shim resmi:
+Pada Android lama (kasus yang dilaporkan: Android 12, umumnya ≤ 14),
+seccomp sistem dapat memblokir syscall `close_range` (nr 436), sehingga
+OpenCode mati saat start dengan pesan *"Bad system call"*.
+
+**Kabar baik:** paket native terbaru sudah membawa shim
+`libopencode-crhandler.so` **di dalam paketnya** (perbaikan
+[issue #36](https://github.com/Hope2333/opencode-termux/issues/36) —
+paket versi lama di-*repack* pada release Push261013, dan semua versi
+baru sejak Push261016 sudah ter-*hardening*). Jadi bila Anda memakai
+versi terbaru dari panduan ini, langkah manual di bawah **tidak lagi
+diperlukan**.
+
+Untuk paket **lama** (sebelum perbaikan itu), solusinya memakai shim
+secara manual:
 
 ```sh
 curl -fsSL https://github.com/Hope2333/opencode-termux/releases/download/native-beta-260826/libopencode-crshim.so \
@@ -259,7 +335,7 @@ gagal dengan pesan tersebut (umumnya saat memasang v1), tambahkan opsi
 `--force-conflicts`:
 
 ```sh
-dpkg -i --force-conflicts opencode1_1.18.32_aarch64.deb
+dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb
 ```
 
 ### Memasang v1 dan v2 berdampingan
@@ -273,9 +349,11 @@ Kedua versi bisa dipasang bersamaan, tetapi nama perintahnya sama
 | `opencode1` | v1 | Tanpa *symlink* `opencode` |
 
 ```sh
-dpkg -i opencode_2.0.12_aarch64.deb      # v2  -> perintah `opencode`
-dpkg -i --force-conflicts opencode1_1.18.32_aarch64.deb   # v1 -> perintah `opencode1`
+dpkg -i opencode_2.0.31_aarch64.deb      # v2  -> perintah `opencode`
+dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb   # v1 -> perintah `opencode1`
 ```
+
+Atau cukup jalankan script installer dengan `bash install.sh --both`.
 
 ---
 
@@ -289,10 +367,13 @@ Repository asli menyediakan beberapa varian paket:
 |----------|---------|------------|
 | native (mainline) | `opencode` / `opencode1` | Zero-glibc bionic ELF, langsung dieksekusi |
 | wrapper | `opencode-wrapper` / `opencode1-wrapper` | Wrapper glibc (butuh `glibc` + `openssl-glibc`) |
-| compressed (UPX) | `opencode-compressed` / `opencode1-compressed` | UPX `--best`, lebih kecil, startup lebih lambat |
+| compressed (UPX) | `opencode-compressed` / `opencode1-compressed` | UPX, lebih kecil, startup lebih lambat |
 | standalone | `opencode-wrapper-standalone` | Versi beku untuk rollback |
 
-> Panduan ini berfokus pada keluarga **native** (disarankan).
+> Panduan ini berfokus pada keluarga **native** (disarankan). Dalam satu
+> generasi, keluarga native / wrapper / compressed **saling eksklusif**
+> — pasang tepat satu. Lintas generasi (`opencode1*` dengan `opencode*`)
+> boleh berdampingan.
 
 ### Riwayat Perubahan Nama Paket
 
