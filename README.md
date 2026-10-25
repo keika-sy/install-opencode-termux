@@ -149,7 +149,20 @@ bash install.sh --help
 | `--no-verify` | Lewati verifikasi SHA256 |
 | `--force-conflicts` | Teruskan `--force-conflicts` ke `dpkg` |
 | `--keep` | Simpan file `.deb` hasil unduhan |
+| `--check-update` | Cek versi terbaru di upstream & bandingkan dengan yang terpasang |
+| `--update` | Perbarui paket terpasang ke versi terbaru |
 | `--uninstall <v1\|v2\|all>` | Copot pemasangan |
+
+**Cek & pasang update:**
+
+```sh
+bash install.sh --check-update   # laporan: versi terpasang vs versi terbaru
+bash install.sh --update         # unduh + verifikasi + pasang versi terbaru
+```
+
+> Cek update memindai daftar releases upstream lewat GitHub API (termasuk
+> *prerelease*, karena batch terbaru upstream berstatus prerelease) dan
+> mengambil versi tertinggi per generasi beserta tag release-nya.
 
 ### Pilihan A — OpenCode v1 (1.19.3)
 

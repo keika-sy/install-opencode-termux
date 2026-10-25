@@ -149,7 +149,21 @@ bash install.sh --help
 | `--no-verify` | Skip SHA256 verification |
 | `--force-conflicts` | Pass `--force-conflicts` to `dpkg` |
 | `--keep` | Keep the downloaded `.deb` file |
+| `--check-update` | Check upstream for the latest version & compare with the installed one |
+| `--update` | Update installed packages to the latest version |
 | `--uninstall <v1\|v2\|all>` | Uninstall |
+
+**Check for & apply updates:**
+
+```sh
+bash install.sh --check-update   # report: installed vs latest version
+bash install.sh --update         # download + verify + install the latest version
+```
+
+> The update check scans the upstream releases list via the GitHub API
+> (including *prereleases*, since upstream's newest batches are
+> prereleases) and picks the highest version per generation together with
+> its release tag.
 
 ### Option A — OpenCode v1 (1.19.3)
 

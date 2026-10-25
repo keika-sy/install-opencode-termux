@@ -14,6 +14,8 @@
 #   bash install.sh --v1            # pasang v1 saja
 #   bash install.sh --both          # pasang v1 + v2 berdampingan
 #   bash install.sh --version 2.0.27 --tag Push261013
+#   bash install.sh --check-update  # cek versi terbaru di upstream
+#   bash install.sh --update        # perbarui paket terpasang ke versi terbaru
 #   bash install.sh --uninstall v2  # copot pemasangan
 #
 # One-liner:
@@ -33,6 +35,7 @@ UPSTREAM="Hope2333/opencode-termux"
 TARGET="v2"            # v2 | v1 | both
 CUSTOM_VERSION=""
 UNINSTALL=""
+MODE=""                # check | update
 NO_VERIFY=0
 FORCE_CONFLICTS=0
 KEEP_FILE=0
@@ -64,6 +67,9 @@ Opsi:
   --no-verify           Lewati verifikasi SHA256
   --force-conflicts     Teruskan --force-conflicts ke dpkg
   --keep                Simpan file .deb hasil unduhan (di folder saat ini)
+  --check-update        Cek versi terbaru di upstream dan bandingkan
+                        dengan versi yang terpasang
+  --update              Perbarui paket yang terpasang ke versi terbaru
   --uninstall <target>  Copot paket: v1 | v2 | all
   -h, --help            Tampilkan bantuan ini
 
@@ -72,6 +78,8 @@ Contoh:
   bash install.sh --v1
   bash install.sh --both
   bash install.sh --version 2.0.27 --tag Push261013
+  bash install.sh --check-update
+  bash install.sh --update
   bash install.sh --uninstall all
 EOF
 }
@@ -91,6 +99,8 @@ while [ $# -gt 0 ]; do
     --no-verify)       NO_VERIFY=1 ;;
     --force-conflicts) FORCE_CONFLICTS=1 ;;
     --keep)            KEEP_FILE=1 ;;
+    --check-update)    MODE="check" ;;
+    --update)          MODE="update" ;;
     --uninstall)
       [ $# -ge 2 ] || die "--uninstall butuh nilai: v1 | v2 | all"
       UNINSTALL="$2"; shift ;;
@@ -153,6 +163,127 @@ do_uninstall() {
     dpkg -r opencode || warn "Paket opencode tidak terpasang / gagal dicopot."
   fi
   ok "Uninstall selesai."
+  exit 0
+}
+
+# --- Cek update ----------------------------------------------------------------------
+API_URL="https://api.github.com/repos/${UPSTREAM}/releases?per_page=30"
+LATEST_V2_VER=""; LATEST_V2_TAG=""
+LATEST_V1_VER=""; LATEST_V1_TAG=""
+
+# is_newer A B -> sukses (0) bila A lebih baru dari B
+is_newer() {
+  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | tail -n 1)" = "$1" ]
+}
+
+# Ambil versi terbaru per generasi dari daftar releases di GitHub API.
+# SENGAJA tidak memakai endpoint /releases/latest: upstream menandainya ke
+# batch lama karena batch-batch baru berstatus prerelease, jadi daftar
+# releases (termasuk prerelease) dipindai dan versi tertinggi per generasi
+# diambil beserta tag release tempat file itu berada.
+fetch_latest() {
+  local json line tag ver
+  info "Menghubungi GitHub API untuk daftar releases ${UPSTREAM}..."
+  json="$(curl -fsSL --retry 3 -H 'Accept: application/vnd.github+json' "$API_URL")" \
+    || die "Gagal mengambil daftar releases dari GitHub API."
+  tag=""
+  while IFS= read -r line; do
+    case "$line" in
+      *'"tag_name": '*)
+        tag="$(printf '%s' "$line" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')" ;;
+      *opencode1_*_aarch64.deb*)
+        ver="$(printf '%s' "$line" | sed -n 's/.*opencode1_\([0-9][0-9.]*\)_aarch64\.deb.*/\1/p')"
+        if [ -n "$ver" ] && { [ -z "$LATEST_V1_VER" ] || is_newer "$ver" "$LATEST_V1_VER"; }; then
+          LATEST_V1_VER="$ver"; LATEST_V1_TAG="$tag"
+        fi ;;
+      *opencode_*_aarch64.deb*)
+        ver="$(printf '%s' "$line" | sed -n 's/.*opencode_\([0-9][0-9.]*\)_aarch64\.deb.*/\1/p')"
+        if [ -n "$ver" ] && { [ -z "$LATEST_V2_VER" ] || is_newer "$ver" "$LATEST_V2_VER"; }; then
+          LATEST_V2_VER="$ver"; LATEST_V2_TAG="$tag"
+        fi ;;
+    esac
+  done < <(printf '%s\n' "$json")
+  [ -n "$LATEST_V2_VER" ] || die "Tidak menemukan paket opencode (v2) di daftar releases upstream."
+  [ -n "$LATEST_V1_VER" ] || die "Tidak menemukan paket opencode1 (v1) di daftar releases upstream."
+}
+
+# Versi paket yang terpasang untuk satu generasi (kosong bila tidak terpasang)
+installed_version() {
+  local gen="$1" pkg bin ver=""
+  if [ "$gen" = "v2" ]; then pkg="opencode"; bin="opencode"; else pkg="opencode1"; bin="opencode1"; fi
+  if command -v dpkg-query >/dev/null 2>&1; then
+    ver="$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || true)"
+  fi
+  if [ -z "$ver" ] && command -v "$bin" >/dev/null 2>&1; then
+    ver="$("$bin" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  fi
+  printf '%s' "$ver"
+}
+
+# Laporan status satu generasi: 0 = ada update, 1 = tidak ada / belum terpasang
+check_one() {
+  local gen="$1" hver="$2" htag="$3" cur
+  cur="$(installed_version "$gen")"
+  if [ -z "$cur" ]; then
+    printf '  %-4s : belum terpasang — versi terbaru %s (release %s)\n' "$gen" "$hver" "$htag"
+    return 1
+  fi
+  if is_newer "$hver" "$cur"; then
+    printf '  %-4s : %s -> %s (release %s) — UPDATE TERSEDIA\n' "$gen" "$cur" "$hver" "$htag"
+    return 0
+  fi
+  printf '  %-4s : %s — sudah versi terbaru\n' "$gen" "$cur"
+  return 1
+}
+
+do_check_update() {
+  fetch_latest
+  echo "Status versi:"
+  check_one "v2" "$LATEST_V2_VER" "$LATEST_V2_TAG" || true
+  check_one "v1" "$LATEST_V1_VER" "$LATEST_V1_TAG" || true
+  echo
+  info "Perbarui yang terpasang dengan: bash install.sh --update"
+  exit 0
+}
+
+do_update() {
+  fetch_latest
+  local updated=0 any=0 cur
+  cur="$(installed_version "v2")"
+  if [ -n "$cur" ]; then
+    any=1
+    if is_newer "$LATEST_V2_VER" "$cur"; then
+      info "Memperbarui v2: $cur -> $LATEST_V2_VER (release $LATEST_V2_TAG)"
+      RELEASE_TAG="$LATEST_V2_TAG"
+      install_one "v2" "$LATEST_V2_VER"
+      updated=1
+    else
+      ok "v2 sudah versi terbaru ($cur)."
+    fi
+  fi
+  cur="$(installed_version "v1")"
+  if [ -n "$cur" ]; then
+    any=1
+    if is_newer "$LATEST_V1_VER" "$cur"; then
+      info "Memperbarui v1: $cur -> $LATEST_V1_VER (release $LATEST_V1_TAG)"
+      RELEASE_TAG="$LATEST_V1_TAG"
+      # Symlink 'opencode' hanya dipertahankan bila v2 tidak terpasang.
+      if [ -z "$(installed_version "v2")" ]; then
+        install_one "v1" "$LATEST_V1_VER" "symlink"
+      else
+        install_one "v1" "$LATEST_V1_VER"
+      fi
+      updated=1
+    else
+      ok "v1 sudah versi terbaru ($cur)."
+    fi
+  fi
+  [ "$any" -eq 1 ] || die "Tidak ada paket opencode/opencode1 yang terpasang. Pasang dulu dengan: bash install.sh"
+  if [ "$updated" -eq 1 ]; then
+    ok "Update selesai."
+  else
+    ok "Semua paket sudah versi terbaru — tidak ada yang diperbarui."
+  fi
   exit 0
 }
 
@@ -222,6 +353,14 @@ check_env
 
 if [ -n "$UNINSTALL" ]; then
   do_uninstall
+fi
+
+if [ "$MODE" = "check" ]; then
+  do_check_update
+fi
+
+if [ "$MODE" = "update" ]; then
+  do_update
 fi
 
 # Tentukan versi final per generasi
