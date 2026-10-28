@@ -127,11 +127,42 @@ pinned in the script are only a fallback if the API is unreachable). It
 then verifies its **SHA256** against the official `SHA256SUMS.txt`,
 installs it with `dpkg -i`, and verifies the result.
 
-**One-liner** (installs v2 — the default):
+**One-liner** (opens the interactive menu — pick an action by number):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh | bash
 ```
+
+#### Interactive menu
+
+Run with **no arguments at all** in a terminal (or with `--menu`), the
+script shows a menu like this:
+
+```text
+=== Menu Utama ===
+Status terpasang saat ini: v2 = 2.0.31 | v1 = belum terpasang
+
+  1) Pasang OpenCode v2 (versi terbaru)
+  2) Pasang OpenCode v1 saja
+  3) Pasang v1 + v2 berdampingan
+  4) Cek update
+  5) Update paket terpasang
+  6) Copot pemasangan...
+  7) Bantuan
+  0) Keluar
+
+Pilih (0-7):
+```
+
+(The menu itself is in Indonesian.) Type the number and press Enter.
+After an action finishes you return to the menu — so checking for
+updates, installing them, and uninstalling can all happen in one
+session. The menu reads input straight from the terminal, so it works
+with the `curl | bash` one-liner above too.
+
+To skip the menu and install directly (e.g. for automation), pass any
+argument — for example `--v2` — or set `OPENCODE_NO_MENU=1`. Without a
+terminal (pipe/CI), the script installs v2 directly, as before.
 
 #### How the script works
 
@@ -177,6 +208,7 @@ bash install.sh --help
 
 | Option | Description |
 |--------|-------------|
+| `--menu` | Show the interactive menu (also appears automatically with no arguments in a terminal) |
 | `--v2` | Install OpenCode v2 (default) |
 | `--v1` | Install OpenCode v1 only (+ `opencode` symlink) |
 | `--both` | Install v1 + v2 side by side |

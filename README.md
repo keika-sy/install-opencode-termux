@@ -127,11 +127,42 @@ cadangan bila API tidak terjangkau). Script lalu memverifikasi
 **SHA256**-nya terhadap `SHA256SUMS.txt` resmi, memasangnya dengan
 `dpkg -i`, lalu memverifikasi hasilnya.
 
-**One-liner** (memasang v2 — bawaan):
+**One-liner** (membuka menu interaktif — pilih aksi dengan mengetik angka):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh | bash
 ```
+
+#### Menu interaktif
+
+Dijalankan **tanpa argumen apa pun** di terminal (atau dengan
+`--menu`), script menampilkan menu seperti ini:
+
+```text
+=== Menu Utama ===
+Status terpasang saat ini: v2 = 2.0.31 | v1 = belum terpasang
+
+  1) Pasang OpenCode v2 (versi terbaru)
+  2) Pasang OpenCode v1 saja
+  3) Pasang v1 + v2 berdampingan
+  4) Cek update
+  5) Update paket terpasang
+  6) Copot pemasangan...
+  7) Bantuan
+  0) Keluar
+
+Pilih (0-7):
+```
+
+Ketik nomornya, tekan Enter. Setelah satu aksi selesai, Anda kembali
+ke menu — jadi cek update, pasang update, dan copot bisa dilakukan
+dalam satu sesi. Menu membaca input dari terminal langsung, jadi tetap
+jalan pada one-liner `curl | bash` di atas.
+
+Untuk melewati menu dan langsung memasang (misalnya untuk script
+otomatis), berikan argumen apa pun — contohnya `--v2` — atau set
+`OPENCODE_NO_MENU=1`. Tanpa terminal (pipe/CI), script otomatis
+memasang v2 seperti sebelumnya.
 
 #### Cara kerja script
 
@@ -175,6 +206,7 @@ bash install.sh --help
 
 | Opsi | Keterangan |
 |------|------------|
+| `--menu` | Tampilkan menu interaktif (juga muncul otomatis bila tanpa argumen di terminal) |
 | `--v2` | Pasang OpenCode v2 (bawaan) |
 | `--v1` | Pasang OpenCode v1 saja (+ symlink `opencode`) |
 | `--both` | Pasang v1 + v2 berdampingan |

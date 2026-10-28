@@ -12,7 +12,8 @@
 # selalu berada di release yang sama.
 #
 # Contoh pemakaian:
-#   bash install.sh                 # pasang v2 (bawaan)
+#   bash install.sh                 # menu interaktif (bila di terminal)
+#   bash install.sh --v2            # pasang v2 langsung, tanpa menu
 #   bash install.sh --v1            # pasang v1 saja
 #   bash install.sh --both          # pasang v1 + v2 berdampingan
 #   bash install.sh --version 2.0.27 --tag Push261013
@@ -165,7 +166,9 @@ Tidak butuh root, tidak butuh proot/glibc.
 Pemakaian: bash install.sh [opsi]
 
 Mode:
-  (tanpa opsi)          Pasang OpenCode (bawaan: v2, versi terbaru)
+  (tanpa opsi)          Di terminal: tampilkan menu interaktif.
+                        Tanpa terminal (pipe/CI): pasang v2 versi terbaru.
+  --menu                Tampilkan menu interaktif (pilih aksi dengan angka)
   --check-update        Cek versi terbaru di upstream dan bandingkan
                         dengan versi yang terpasang (tidak memasang apa pun)
   --update              Perbarui paket yang terpasang ke versi terbaru
@@ -195,6 +198,8 @@ Opsi lanjutan:
 
 Variabel lingkungan:
   OPENCODE_TAG          Sama seperti --tag (dipaksa untuk semua generasi)
+  OPENCODE_NO_MENU      Isi dengan nilai apa pun (mis. 1) untuk mematikan
+                        menu interaktif otomatis saat tanpa argumen
 
 Contoh:
   bash install.sh                       # pasang v2 terbaru
@@ -215,6 +220,7 @@ EOF
 }
 
 # --- Baca argumen ---------------------------------------------------------------
+ARGC_ORIG=$#
 while [ $# -gt 0 ]; do
   case "$1" in
     --v2)   TARGET="v2" ;;
@@ -231,6 +237,7 @@ while [ $# -gt 0 ]; do
     --keep)            KEEP_FILE=1 ;;
     --check-update)    MODE="check" ;;
     --update)          MODE="update" ;;
+    --menu)            MODE="menu" ;;
     --uninstall)
       [ $# -ge 2 ] || die "--uninstall butuh nilai: v1 | v2 | all"
       UNINSTALL="$2"; shift ;;
@@ -539,6 +546,8 @@ if [ "$MODE" = "update" ]; then
   do_update
 fi
 
+# --- Alur pemasangan (dipakai jalur CLI maupun menu interaktif) ---------------------
+do_install() {
 # Tentukan versi final per generasi
 v2_ver="$V2_VERSION"; v2_tag=""
 v1_ver="$V1_VERSION"; v1_tag=""
@@ -590,3 +599,75 @@ echo
 ok "Selesai! Jalankan 'opencode' untuk membuka TUI."
 info "Berikutnya: 'opencode --help' (bantuan perintah) | update: bash install.sh --update | copot: bash install.sh --uninstall all"
 info "Konfigurasi tersimpan di ~/.config/opencode (v2) dan ~/.config/opencode1 (v1) — tidak hilang saat update/uninstall paket."
+}
+
+# --- Menu interaktif -------------------------------------------------------------------
+# Input dibaca dari /dev/tty (bukan stdin), jadi menu tetap jalan pada
+# one-liner `curl ... | bash` — stdin di sana adalah pipa script-nya sendiri.
+tty_available() { ( exec 9<>/dev/tty ) 2>/dev/null; }
+
+menu_pause() {
+  printf "\nTekan Enter untuk kembali ke menu..."
+  IFS= read -r _ < /dev/tty || exit 0
+}
+
+run_menu() {
+  local choice sub rc v2cur v1cur
+  while true; do
+    v2cur="$(installed_version v2)"; [ -n "$v2cur" ] || v2cur="belum terpasang"
+    v1cur="$(installed_version v1)"; [ -n "$v1cur" ] || v1cur="belum terpasang"
+    printf "\n${C_BOLD}=== Menu Utama ===${C_RESET}\n"
+    printf "Status terpasang saat ini: v2 = %s | v1 = %s\n\n" "$v2cur" "$v1cur"
+    printf "  1) Pasang OpenCode v2 (versi terbaru)\n"
+    printf "  2) Pasang OpenCode v1 saja\n"
+    printf "  3) Pasang v1 + v2 berdampingan\n"
+    printf "  4) Cek update\n"
+    printf "  5) Update paket terpasang\n"
+    printf "  6) Copot pemasangan...\n"
+    printf "  7) Bantuan\n"
+    printf "  0) Keluar\n\n"
+    printf "Pilih (0-7): "
+    IFS= read -r choice < /dev/tty || return 0
+    rc=0
+    case "$choice" in
+      1) ( TARGET="v2"; do_install ) || rc=$? ;;
+      2) ( TARGET="v1"; do_install ) || rc=$? ;;
+      3) ( TARGET="both"; do_install ) || rc=$? ;;
+      4) ( do_check_update ) || rc=$? ;;
+      5) ( do_update ) || rc=$? ;;
+      6)
+        printf "\nCopot yang mana?\n  1) v1 saja\n  2) v2 saja\n  3) Semua (v1 + v2)\n  0) Batal\n\nPilih (0-3): "
+        IFS= read -r sub < /dev/tty || return 0
+        case "$sub" in
+          1) ( UNINSTALL="v1"; do_uninstall ) || rc=$? ;;
+          2) ( UNINSTALL="v2"; do_uninstall ) || rc=$? ;;
+          3) ( UNINSTALL="all"; do_uninstall ) || rc=$? ;;
+          0) continue ;;
+          *) warn "Pilihan tidak dikenal: $sub"; continue ;;
+        esac ;;
+      7) usage ;;
+      0) ok "Selesai. Sampai jumpa!"; return 0 ;;
+      *) warn "Pilihan tidak dikenal: $choice — masukkan angka 0-7."; continue ;;
+    esac
+    if [ "$rc" -ne 0 ]; then
+      warn "Aksi terakhir berakhir dengan kode error $rc (lihat pesan error di atas)."
+    fi
+    menu_pause
+  done
+}
+
+# --- Titik masuk: menu / pemasangan -------------------------------------------------------
+if [ "$MODE" = "menu" ]; then
+  tty_available || die "Menu interaktif membutuhkan terminal. Jalankan script langsung dari Termux, atau pakai opsi CLI (lihat --help)."
+  run_menu
+  exit 0
+fi
+
+# Tanpa argumen apa pun di terminal -> menu interaktif.
+# OPENCODE_NO_MENU=1 (atau argumen CLI apa pun) menonaktifkannya.
+if [ "$ARGC_ORIG" -eq 0 ] && [ -z "${OPENCODE_NO_MENU:-}" ] && tty_available; then
+  run_menu
+  exit 0
+fi
+
+do_install
