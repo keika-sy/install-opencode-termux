@@ -90,11 +90,13 @@ fmt_size() {
 
 # dl_progress <url> <outfile> <label> <total_bytes (0 = tidak diketahui)>
 # Argumen curl tambahan diambil dari array DL_ARGS. Mengembalikan exit code curl.
-# Bar hanya digambar bila stderr adalah terminal (di pipe/log tetap diam).
+# Bar hanya digambar bila stderr adalah terminal (di pipe/log tetap diam), dan
+# lebarnya MENYESUAIKAN lebar terminal saat itu juga: bar menyusut, label
+# terpotong (…), segmen ETA dibuang — supaya tidak pernah wrap di layar sempit.
 dl_progress() {
   local url="$1" out="$2" label="$3" total="${4:-0}"
-  local start=$SECONDS elapsed=0 done=0 pct=0 filled=0 empty=0 eta=0 i=0
-  local frame bar pid rc
+  local start=$SECONDS elapsed=0 done=0 pct=0 eta=0 i=0
+  local frame pid rc cols line suffix bar lbl lbl_max bar_w filled empty
   : > "$out" 2>/dev/null || true
   curl -fsSL "${DL_ARGS[@]}" -o "$out" "$url" &
   pid=$!
@@ -103,21 +105,50 @@ dl_progress() {
       done=$(stat -c %s "$out" 2>/dev/null || echo 0)
       elapsed=$(( SECONDS - start )); [ "$elapsed" -lt 1 ] && elapsed=1
       frame="${SPIN_FRAMES[$(( i % 10 ))]}"; i=$(( i + 1 ))
+      cols=$(tput cols 2>/dev/null)
+      case "$cols" in ''|*[!0-9]*)
+        sz=$(stty size </dev/stderr 2>/dev/null); cols="${sz##* }" ;;
+      esac
+      case "$cols" in ''|*[!0-9]*) cols="${COLUMNS:-80}" ;; esac
+      lbl="$label"
       if [ "$total" -gt 0 ]; then
         pct=$(( done * 100 / total )); [ "$pct" -gt 100 ] && pct=100
-        filled=$(( pct / 5 )); empty=$(( 20 - filled ))
+        if [ "$pct" -gt 0 ]; then eta=$(( elapsed * (100 - pct) / pct )); else eta=0; fi
+        suffix=$(printf ' %3d%% • %s/%s • %ds • ETA ±%ds' "$pct" "$(fmt_size "$done")" "$(fmt_size "$total")" "$elapsed" "$eta")
+        bar_w=20
+        lbl_max=$(( cols - ${#suffix} - 5 - bar_w ))
+        if [ "$lbl_max" -lt 8 ]; then bar_w=10; lbl_max=$(( cols - ${#suffix} - 5 - bar_w )); fi
+        if [ "$lbl_max" -lt 8 ]; then
+          # Layar sangat sempit: buang segmen waktu/ETA dari suffix.
+          suffix=$(printf ' %3d%% • %s/%s' "$pct" "$(fmt_size "$done")" "$(fmt_size "$total")")
+          lbl_max=$(( cols - ${#suffix} - 5 - bar_w ))
+        fi
+        if [ "$lbl_max" -lt 4 ]; then
+          # Layar ekstrem sempit: suffix tinggal persen saja, bar lebih pendek.
+          suffix=$(printf ' %3d%%' "$pct")
+          bar_w=10; lbl_max=$(( cols - ${#suffix} - 5 - bar_w ))
+          if [ "$lbl_max" -lt 4 ]; then
+            bar_w=6; lbl_max=$(( cols - ${#suffix} - 5 - bar_w ))
+          fi
+        fi
+        [ "$lbl_max" -lt 4 ] && lbl_max=4
+        if [ "${#lbl}" -gt "$lbl_max" ]; then lbl="${lbl:0:$(( lbl_max - 1 ))}…"; fi
+        filled=$(( pct * bar_w / 100 )); empty=$(( bar_w - filled ))
         bar=""
         [ "$filled" -gt 0 ] && bar="$(printf '▓%.0s' $(seq 1 "$filled"))"
         [ "$empty" -gt 0 ] && bar="${bar}$(printf '░%.0s' $(seq 1 "$empty"))"
-        if [ "$pct" -gt 0 ]; then eta=$(( elapsed * (100 - pct) / pct )); else eta=0; fi
-        printf '\r%s %s [%s] %3d%% • %s/%s • %ds • ETA ±%ds   ' \
-          "$frame" "$label" "$bar" "$pct" "$(fmt_size "$done")" "$(fmt_size "$total")" "$elapsed" "$eta" >&2
+        line="${frame} ${lbl} [${bar}]${suffix}"
       else
-        printf '\r%s %s • %s • %ds   ' "$frame" "$label" "$(fmt_size "$done")" "$elapsed" >&2
+        suffix=$(printf ' • %s • %ds' "$(fmt_size "$done")" "$elapsed")
+        lbl_max=$(( cols - ${#suffix} - 2 ))
+        [ "$lbl_max" -lt 4 ] && lbl_max=4
+        if [ "${#lbl}" -gt "$lbl_max" ]; then lbl="${lbl:0:$(( lbl_max - 1 ))}…"; fi
+        line="${frame} ${lbl}${suffix}"
       fi
+      printf '\r%s\033[K' "$line" >&2
       sleep 0.15
     done
-    printf '\r%*s\r' 90 '' >&2
+    printf '\r\033[K' >&2
   fi
   wait "$pid"; rc=$?
   return $rc
