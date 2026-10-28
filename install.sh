@@ -71,6 +71,58 @@ ok()    { printf "${C_GREEN}[ OK ]${C_RESET} %s\n" "$*"; }
 warn()  { printf "${C_YELLOW}[WARN]${C_RESET} %s\n" "$*"; }
 die()   { printf "${C_RED}[ERROR]${C_RESET} %s\n" "$*" >&2; exit 1; }
 
+# --- Progress unduhan ---------------------------------------------------------
+# Gaya: spinner braille + bar ▓░ + persen + ukuran + waktu berjalan + ETA (±).
+# Dipakai untuk unduhan daftar releases (API) dan file .deb.
+SPIN_FRAMES=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+DL_ARGS=()
+
+fmt_size() {
+  local b="${1:-0}"
+  if [ "$b" -ge 1048576 ]; then
+    printf '%d.%dMB' $(( b / 1048576 )) $(( (b % 1048576) * 10 / 1048576 ))
+  elif [ "$b" -ge 1024 ]; then
+    printf '%dKB' $(( b / 1024 ))
+  else
+    printf '%dB' "$b"
+  fi
+}
+
+# dl_progress <url> <outfile> <label> <total_bytes (0 = tidak diketahui)>
+# Argumen curl tambahan diambil dari array DL_ARGS. Mengembalikan exit code curl.
+# Bar hanya digambar bila stderr adalah terminal (di pipe/log tetap diam).
+dl_progress() {
+  local url="$1" out="$2" label="$3" total="${4:-0}"
+  local start=$SECONDS elapsed=0 done=0 pct=0 filled=0 empty=0 eta=0 i=0
+  local frame bar pid rc
+  : > "$out" 2>/dev/null || true
+  curl -fsSL "${DL_ARGS[@]}" -o "$out" "$url" &
+  pid=$!
+  if [ -t 2 ]; then
+    while kill -0 "$pid" 2>/dev/null; do
+      done=$(stat -c %s "$out" 2>/dev/null || echo 0)
+      elapsed=$(( SECONDS - start )); [ "$elapsed" -lt 1 ] && elapsed=1
+      frame="${SPIN_FRAMES[$(( i % 10 ))]}"; i=$(( i + 1 ))
+      if [ "$total" -gt 0 ]; then
+        pct=$(( done * 100 / total )); [ "$pct" -gt 100 ] && pct=100
+        filled=$(( pct / 5 )); empty=$(( 20 - filled ))
+        bar=""
+        [ "$filled" -gt 0 ] && bar="$(printf '▓%.0s' $(seq 1 "$filled"))"
+        [ "$empty" -gt 0 ] && bar="${bar}$(printf '░%.0s' $(seq 1 "$empty"))"
+        if [ "$pct" -gt 0 ]; then eta=$(( elapsed * (100 - pct) / pct )); else eta=0; fi
+        printf '\r%s %s [%s] %3d%% • %s/%s • %ds • ETA ±%ds   ' \
+          "$frame" "$label" "$bar" "$pct" "$(fmt_size "$done")" "$(fmt_size "$total")" "$elapsed" "$eta" >&2
+      else
+        printf '\r%s %s • %s • %ds   ' "$frame" "$label" "$(fmt_size "$done")" "$elapsed" >&2
+      fi
+      sleep 0.15
+    done
+    printf '\r%*s\r' 90 '' >&2
+  fi
+  wait "$pid"; rc=$?
+  return $rc
+}
+
 usage() {
   cat <<'EOF'
 Installer OpenCode for Termux (native bionic build)
@@ -223,8 +275,8 @@ fetch_latest() {
       info "Percobaan ${attempt}/3..."
       sleep 3
     fi
-    if curl -fSL --connect-timeout 15 --max-time 90 --progress-bar \
-         -H 'Accept: application/vnd.github+json' -o "$tmpjson" "$API_URL"; then
+    DL_ARGS=(--connect-timeout 15 --max-time 90 -H 'Accept: application/vnd.github+json')
+    if dl_progress "$API_URL" "$tmpjson" "Daftar releases" 0; then
       fetched=1; break
     fi
   done
@@ -232,17 +284,19 @@ fetch_latest() {
     rm -f "$tmpjson"; return 1
   fi
   tag=""
+  # PENTING: hanya baris "name" aset yang dipercaya — teks body release
+  # juga menyebut nama file .deb versi lain dan bisa mengotori tag-nya.
   while IFS= read -r line; do
     case "$line" in
       *'"tag_name": '*)
         tag="$(printf '%s' "$line" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')" ;;
-      *opencode1_*_aarch64.deb*)
-        ver="$(printf '%s' "$line" | sed -n 's/.*opencode1_\([0-9][0-9.]*\)_aarch64\.deb.*/\1/p')"
+      *'"name": "opencode1_'*_aarch64.deb*)
+        ver="$(printf '%s' "$line" | sed -n 's/.*"name": "opencode1_\([0-9][0-9.]*\)_aarch64\.deb.*/\1/p')"
         if [ -n "$ver" ] && { [ -z "$LATEST_V1_VER" ] || is_newer "$ver" "$LATEST_V1_VER"; }; then
           LATEST_V1_VER="$ver"; LATEST_V1_TAG="$tag"
         fi ;;
-      *opencode_*_aarch64.deb*)
-        ver="$(printf '%s' "$line" | sed -n 's/.*opencode_\([0-9][0-9.]*\)_aarch64\.deb.*/\1/p')"
+      *'"name": "opencode_'*_aarch64.deb*)
+        ver="$(printf '%s' "$line" | sed -n 's/.*"name": "opencode_\([0-9][0-9.]*\)_aarch64\.deb.*/\1/p')"
         if [ -n "$ver" ] && { [ -z "$LATEST_V2_VER" ] || is_newer "$ver" "$LATEST_V2_VER"; }; then
           LATEST_V2_VER="$ver"; LATEST_V2_TAG="$tag"
         fi ;;
@@ -336,7 +390,7 @@ do_update() {
 # $4 = tag release (opsional; bawaan: tag efektif generasi itu)
 install_one() {
   local gen="$1" version="$2" make_symlink="${3:-}" tag="${4:-}"
-  local pkg file url sums_url workdir
+  local pkg file url sums_url workdir total
   if [ "$gen" = "v2" ]; then pkg="opencode"; else pkg="opencode1"; fi
   [ -n "$tag" ] || tag="$(gen_tag "$gen")"
   file="${pkg}_${version}_aarch64.deb"
@@ -348,7 +402,9 @@ install_one() {
   trap "rm -rf '$workdir'" EXIT
 
   info "Mengunduh ${file} (release ${tag})..."
-  curl -fL --retry 3 --connect-timeout 20 --progress-bar -o "$workdir/$file" "$url" \
+  total=$(curl -sIL --connect-timeout 20 "$url" 2>/dev/null | grep -i '^content-length:' | tail -n 1 | tr -dc '0-9' || true)
+  DL_ARGS=(--retry 3 --connect-timeout 20)
+  dl_progress "$url" "$workdir/$file" "$file" "${total:-0}" \
     || die "Unduhan gagal: $url"
 
   if [ "$NO_VERIFY" -eq 0 ]; then
