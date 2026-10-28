@@ -115,7 +115,8 @@ generasi satunya.
 
 > ⚠️ **Pengguna Android 15/16, baca ini dulu:** v2 versi **2.1.4** saat ini
 > punya bug yang bikin TUI-nya crash pas dibuka di Android 15/16. Kalau
-> HP kamu Android 15/16, pasang **2.0.24** dulu buat jaga-jaga. Detailnya
+> HP kamu Android 15/16, pasang **2.0.32** aja dulu (sudah dites jalan di
+> Android 16; **2.0.24** juga aman). Detailnya
 > ada di [Pemecahan Masalah](#v2-214-crash-di-android-1516-pointer-exceeds-safe-integer-range).
 
 ---
@@ -326,7 +327,7 @@ rm -f opencode_2.1.4_aarch64.deb SHA256SUMS.txt
 > buat versi selain yang terbaru, ganti juga **tag** pada URL (misalnya
 > `2.0.27` ada di tag `Push261013`), atau pakai script installer dengan
 > opsi `--version` + `--tag`. Ini juga cara buat *downgrade* — misalnya
-> turun ke `2.0.24` gara-gara bug 2.1.4 di Android 15/16.
+> turun ke `2.0.32` gara-gara bug 2.1.4 di Android 15/16.
 
 ### Pilihan C — Software Source (apt / pacman)
 
@@ -437,17 +438,18 @@ dari batas aman angka JavaScript. Layer FFI punya OpenTUI (library
 TUI-nya OpenCode) nggak siap nerima pointer sebesar itu dan langsung
 nyerah. Di Android ≤ 14 masalah ini nggak muncul.
 
-**Solusi sementara: turun ke versi 2.0.24**, yang sudah terbukti jalan
-normal di Android 16:
+**Solusi sementara: turun ke versi 2.0.32** — dia satu release dengan
+2.1.4, tapi build-nya beda dan sudah dites jalan normal di Android 16:
 
 ```sh
-bash install.sh --version 2.0.24 --tag Push261013
+bash install.sh --version 2.0.32 --tag Push261026
 ```
 
-Atau unduh manual `opencode_2.0.24_aarch64.deb` dari release
-`Push261013` dan `dpkg -i` seperti biasa — paket `.deb` memang bisa
-ditimpa versi lama (downgrade itu hal normal di dpkg, datamu nggak
-kesentuh). Nanti kalau upstream sudah merilis perbaikan, tinggal
+Versi **2.0.24** juga sudah terbukti aman (dari laporan issue-nya),
+jadi bisa dipakai sebagai alternatif. Intinya yang sudah dipastikan
+kena bug ini cuma build **2.1.4**-nya saja. Paket `.deb` memang bisa
+ditimpa versi lain (downgrade itu hal normal di dpkg, datamu nggak
+kesentuh kok). Nanti kalau upstream sudah merilis perbaikan, tinggal
 `bash install.sh --update` lagi buat naik ke versi terbaru.
 
 Catatan: mode non-TUI seperti `opencode serve` dan
@@ -564,7 +566,7 @@ paket — lihat juga [Uninstall](#uninstall).
 
 **Versi mana yang harus saya pasang?**
 v2, kecuali kamu punya alasan khusus buat tetap di 1.x. Tapi khusus
-pengguna **Android 15/16**: untuk sekarang pasang **2.0.24** dulu,
+pengguna **Android 15/16**: untuk sekarang pasang **2.0.32** dulu,
 soalnya 2.1.4 lagi ada bug crash TUI di Android versi itu (detailnya
 di Pemecahan Masalah).
 

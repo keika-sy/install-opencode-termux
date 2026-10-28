@@ -115,7 +115,8 @@ settings.
 
 > ⚠️ **On Android 15/16? Read this first:** **2.1.4** currently has a bug
 > that crashes its TUI on launch under Android 15/16. If that's your
-> device, install **2.0.24** for now. Details in
+> device, install **2.0.32** instead for now (tested working on
+> Android 16; **2.0.24** is also fine). Details in
 > [Troubleshooting](#v2-214-crashes-on-android-1516-pointer-exceeds-safe-integer-range).
 
 ---
@@ -328,7 +329,7 @@ rm -f opencode_2.1.4_aarch64.deb SHA256SUMS.txt
 > version other than the latest, change the **tag** in the URL as well
 > (e.g. `2.0.27` lives under the `Push261013` tag), or use the installer
 > script with `--version` + `--tag`. That's also how you *downgrade* —
-> for example dropping to `2.0.24` because of the 2.1.4 bug on
+> for example dropping to `2.0.32` because of the 2.1.4 bug on
 > Android 15/16.
 
 ### Option C — Software Source (apt / pacman)
@@ -439,18 +440,20 @@ values bigger than JavaScript's maximum safe integer. OpenTUI's FFI
 layer (the TUI library OpenCode uses) isn't ready for pointers that
 big and gives up. Android ≤ 14 doesn't have this problem.
 
-**Workaround for now: drop back to 2.0.24**, which is confirmed to run
-fine on Android 16:
+**Workaround for now: drop back to 2.0.32** — it ships in the same
+release as 2.1.4, but it's a different build and is tested working on
+Android 16:
 
 ```sh
-bash install.sh --version 2.0.24 --tag Push261013
+bash install.sh --version 2.0.32 --tag Push261026
 ```
 
-Or manually download `opencode_2.0.24_aarch64.deb` from the
-`Push261013` release and `dpkg -i` it like usual — `.deb` packages can
-simply be overwritten with an older version (downgrading is a normal
-dpkg thing, and your data isn't touched). Once upstream ships a fix,
-just `bash install.sh --update` to climb back to the latest.
+Version **2.0.24** is also confirmed fine (from the issue reports), so
+it's a valid alternative. The point: so far the only build confirmed
+to have this bug is **2.1.4** itself. A `.deb` can simply be
+overwritten with another version (downgrading is a normal dpkg thing,
+and your data isn't touched). Once upstream ships a fix, just
+`bash install.sh --update` to climb back to the latest.
 
 One note: non-TUI modes like `opencode serve` and `opencode run "..."`
 probably still work on 2.1.4 since the crash lives in the TUI path,
@@ -563,7 +566,7 @@ package — see [Uninstall](#uninstall) too.
 
 **Which version should I install?**
 v2, unless you have a specific reason to stay on 1.x. One exception,
-for now: if you're on **Android 15/16**, grab **2.0.24** instead,
+for now: if you're on **Android 15/16**, grab **2.0.32** instead,
 because 2.1.4 currently has a TUI crash bug there (details under
 Troubleshooting).
 
