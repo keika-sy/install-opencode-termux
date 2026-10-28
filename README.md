@@ -294,6 +294,14 @@ rm -f opencode1_1.19.3_aarch64.deb SHA256SUMS.txt
 
 ### Pilihan B — OpenCode v2 (2.1.4)
 
+> ⚠️ **Android 15/16? Jangan pasang yang ini dulu.** 2.1.4 lagi kena
+> bug crash TUI di Android 15/16. Buat HP Android 15/16, ikuti langkah
+> yang sama persis tapi pakai file `opencode_2.0.32_aarch64.deb`
+> (release-nya sama, Push261026 — tinggal ganti nama file di semua
+> langkah). Detail bug-nya ada di
+> [Pemecahan Masalah](#v2-214-crash-di-android-1516-pointer-exceeds-safe-integer-range).
+> Di Android ≤ 14, versi ini aman-aman aja.
+
 > Paket v2 masang binary yang namanya memang sudah `opencode`, jadi
 > nggak ada langkah tambahan apa-apa.
 

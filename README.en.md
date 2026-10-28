@@ -296,6 +296,14 @@ rm -f opencode1_1.19.3_aarch64.deb SHA256SUMS.txt
 
 ### Option B — OpenCode v2 (2.1.4)
 
+> ⚠️ **On Android 15/16? Don't install this one yet.** 2.1.4 currently
+> has a TUI crash bug on Android 15/16. On those devices, follow the
+> exact same steps but with the `opencode_2.0.32_aarch64.deb` file
+> (same release, Push261026 — just swap the filename in every step).
+> Bug details are in
+> [Troubleshooting](#v2-214-crashes-on-android-1516-pointer-exceeds-safe-integer-range).
+> On Android ≤ 14 this version is perfectly fine.
+
 > The v2 package ships a binary that's already named `opencode`, so
 > there are no extra steps at all.
 
