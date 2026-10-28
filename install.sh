@@ -195,7 +195,7 @@ do_uninstall() {
 }
 
 # --- Cek update ----------------------------------------------------------------------
-API_URL="https://api.github.com/repos/${UPSTREAM}/releases?per_page=30"
+API_URL="https://api.github.com/repos/${UPSTREAM}/releases?per_page=10"
 LATEST_V2_VER=""; LATEST_V2_TAG=""
 LATEST_V1_VER=""; LATEST_V1_TAG=""
 
@@ -210,18 +210,27 @@ is_newer() {
 # releases (termasuk prerelease) dipindai dan versi tertinggi per generasi
 # diambil beserta tag release tempat file itu berada.
 fetch_latest() {
-  local json="" line tag ver attempt
+  local tmpjson line tag ver attempt fetched=0
+  tmpjson="$(mktemp "${TMPDIR:-/tmp}/opencode-releases.XXXXXX")" || return 1
   info "Menghubungi GitHub API untuk daftar releases ${UPSTREAM}..."
-  # GitHub kadang membalas 403 sesaat (rate limit IP bersama/NAT) — coba
-  # sampai 3x sebelum menyerah, jangan langsung gagal di percobaan pertama.
+  # Unduh ke file dengan progress bar + timeout tegas: payload JSON ini
+  # besar (±1-2MB) — mengunduhnya diam-diam ke variabel tanpa timeout
+  # membuat script terlihat hang selamanya bila koneksi stall.
+  # GitHub juga kadang membalas 403 sesaat (rate limit IP bersama/NAT),
+  # jadi dicoba sampai 3x sebelum menyerah.
   for attempt in 1 2 3; do
-    if json="$(curl -fsSL -H 'Accept: application/vnd.github+json' "$API_URL")"; then
-      break
+    if [ "$attempt" -gt 1 ]; then
+      info "Percobaan ${attempt}/3..."
+      sleep 3
     fi
-    json=""
-    [ "$attempt" -lt 3 ] && sleep 3
+    if curl -fSL --connect-timeout 15 --max-time 90 --progress-bar \
+         -H 'Accept: application/vnd.github+json' -o "$tmpjson" "$API_URL"; then
+      fetched=1; break
+    fi
   done
-  [ -n "$json" ] || return 1
+  if [ "$fetched" -ne 1 ] || [ ! -s "$tmpjson" ]; then
+    rm -f "$tmpjson"; return 1
+  fi
   tag=""
   while IFS= read -r line; do
     case "$line" in
@@ -238,7 +247,8 @@ fetch_latest() {
           LATEST_V2_VER="$ver"; LATEST_V2_TAG="$tag"
         fi ;;
     esac
-  done < <(printf '%s\n' "$json")
+  done < "$tmpjson"
+  rm -f "$tmpjson"
   [ -n "$LATEST_V2_VER" ] || return 1
   [ -n "$LATEST_V1_VER" ] || return 1
 }
@@ -273,7 +283,7 @@ check_one() {
 }
 
 do_check_update() {
-  fetch_latest || die "Gagal mengambil daftar releases dari GitHub API."
+  fetch_latest || die "Tidak bisa menghubungi GitHub API setelah 3 percobaan — cek koneksi internet kamu. Info offline dari pin script: v2 $V2_VERSION ($V2_TAG), v1 $V1_VERSION ($V1_TAG)."
   echo "Status versi:"
   check_one "v2" "$LATEST_V2_VER" "$LATEST_V2_TAG" || true
   check_one "v1" "$LATEST_V1_VER" "$LATEST_V1_TAG" || true
@@ -283,7 +293,7 @@ do_check_update() {
 }
 
 do_update() {
-  fetch_latest || die "Gagal mengambil daftar releases dari GitHub API."
+  fetch_latest || die "Tidak bisa menghubungi GitHub API setelah 3 percobaan — update dibatalkan, cek koneksi internet kamu."
   local updated=0 any=0 cur
   cur="$(installed_version "v2")"
   if [ -n "$cur" ]; then
@@ -338,12 +348,12 @@ install_one() {
   trap "rm -rf '$workdir'" EXIT
 
   info "Mengunduh ${file} (release ${tag})..."
-  curl -fL --retry 3 --progress-bar -o "$workdir/$file" "$url" \
+  curl -fL --retry 3 --connect-timeout 20 --progress-bar -o "$workdir/$file" "$url" \
     || die "Unduhan gagal: $url"
 
   if [ "$NO_VERIFY" -eq 0 ]; then
     info "Memverifikasi SHA256..."
-    curl -fsSL --retry 3 -o "$workdir/SHA256SUMS.txt" "$sums_url" \
+    curl -fsSL --retry 3 --connect-timeout 20 -o "$workdir/SHA256SUMS.txt" "$sums_url" \
       || die "Gagal mengunduh SHA256SUMS.txt dari release ${tag}."
     if grep -F "  $file" "$workdir/SHA256SUMS.txt" > "$workdir/check.txt" 2>/dev/null \
        || grep -F " $file" "$workdir/SHA256SUMS.txt" > "$workdir/check.txt" 2>/dev/null; then
