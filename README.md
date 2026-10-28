@@ -30,7 +30,7 @@
 - [Instalasi](#instalasi)
   - [Script Installer (Otomatis)](#script-installer-otomatis)
   - [Pilihan A — OpenCode v1](#pilihan-a--opencode-v1-1193)
-  - [Pilihan B — OpenCode v2](#pilihan-b--opencode-v2-2031)
+  - [Pilihan B — OpenCode v2](#pilihan-b--opencode-v2-214)
   - [Pilihan C — Software Source](#pilihan-c--software-source-apt--pacman)
 - [Cara Penggunaan](#cara-penggunaan)
 - [Lokasi Data & Konfigurasi](#lokasi-data--konfigurasi)
@@ -86,7 +86,7 @@ Tersedia **dua versi utama** OpenCode. Pilih salah satu sesuai kebutuhan:
 | Versi | Perintah | Versi Terbaru | File `.deb` |
 |:-----:|:--------:|:-------------:|:------------|
 | **v1** | `opencode1` | `1.19.3` | `opencode1_1.19.3_aarch64.deb` |
-| **v2** | `opencode` | `2.0.31` | `opencode_2.0.31_aarch64.deb` |
+| **v2** | `opencode` | `2.1.4` | `opencode_2.1.4_aarch64.deb` |
 
 | | v1 (1.18.x – 1.19.x) | v2 (2.0.x) |
 |---|---|---|
@@ -102,14 +102,18 @@ Tersedia **dua versi utama** OpenCode. Pilih salah satu sesuai kebutuhan:
 
 ## Instalasi
 
-Semua file `.deb` versi terbaru berada di release **Push261016**.
+File `.deb` versi terbaru berada di release per generasi: **v2 di Push261026**, **v1 di Push261016** (versi terbaru tiap generasi tidak selalu berada di release yang sama).
 
-> <https://github.com/Hope2333/opencode-termux/releases/tag/Push261016>
+> v2: <https://github.com/Hope2333/opencode-termux/releases/tag/Push261026>
+> v1: <https://github.com/Hope2333/opencode-termux/releases/tag/Push261016>
 
 ### Script Installer (Otomatis)
 
 Cara tercepat: pakai script [`install.sh`](./install.sh) dari repository
-ini. Script akan mengunduh paket dari release **Push261016**, memverifikasi
+ini. Secara bawaan script **selalu mengambil versi terbaru** tiap
+generasi langsung dari GitHub API (mode auto — saat ini v2: **2.1.4** di
+Push261026, v1: **1.19.3** di Push261016; pin versi di script hanya
+cadangan bila API tidak terjangkau). Script lalu memverifikasi
 **SHA256**-nya terhadap `SHA256SUMS.txt` resmi, memasangnya dengan
 `dpkg -i`, lalu memverifikasi hasilnya.
 
@@ -145,7 +149,7 @@ bash install.sh --help
 | `--v1` | Pasang OpenCode v1 saja (+ symlink `opencode`) |
 | `--both` | Pasang v1 + v2 berdampingan |
 | `--version <versi>` | Pasang versi tertentu (sesuaikan juga `--tag`) |
-| `--tag <tag>` | Tag release upstream (bawaan: `Push261016`) |
+| `--tag <tag>` | Paksa satu tag release untuk semua generasi (bawaan: per generasi) |
 | `--no-verify` | Lewati verifikasi SHA256 |
 | `--force-conflicts` | Teruskan `--force-conflicts` ke `dpkg` |
 | `--keep` | Simpan file `.deb` hasil unduhan |
@@ -197,7 +201,7 @@ opencode --version    # -> 1.19.3
 rm -f opencode1_1.19.3_aarch64.deb SHA256SUMS.txt
 ```
 
-### Pilihan B — OpenCode v2 (2.0.31)
+### Pilihan B — OpenCode v2 (2.1.4)
 
 > **Keterangan:** paket v2 memasang binary yang sudah langsung bernama
 > `opencode`, tanpa langkah tambahan.
@@ -205,29 +209,29 @@ rm -f opencode1_1.19.3_aarch64.deb SHA256SUMS.txt
 ```sh
 # 1. Unduh
 cd ~
-curl -fL --retry 3 -o opencode_2.0.31_aarch64.deb \
-  "https://github.com/Hope2333/opencode-termux/releases/download/Push261016/opencode_2.0.31_aarch64.deb"
+curl -fL --retry 3 -o opencode_2.1.4_aarch64.deb \
+  "https://github.com/Hope2333/opencode-termux/releases/download/Push261026/opencode_2.1.4_aarch64.deb"
 
 # 2. Verifikasi checksum (disarankan)
 curl -fsSL -o SHA256SUMS.txt \
-  "https://github.com/Hope2333/opencode-termux/releases/download/Push261016/SHA256SUMS.txt"
-grep "opencode_2.0.31_aarch64.deb" SHA256SUMS.txt | sha256sum -c -
+  "https://github.com/Hope2333/opencode-termux/releases/download/Push261026/SHA256SUMS.txt"
+grep "opencode_2.1.4_aarch64.deb" SHA256SUMS.txt | sha256sum -c -
 
 # 3. Periksa isi paket (opsional)
-dpkg-deb -I opencode_2.0.31_aarch64.deb    # metadata paket
-dpkg-deb -c opencode_2.0.31_aarch64.deb    # daftar file di dalam paket
+dpkg-deb -I opencode_2.1.4_aarch64.deb    # metadata paket
+dpkg-deb -c opencode_2.1.4_aarch64.deb    # daftar file di dalam paket
 
 # 4. Install
-dpkg -i opencode_2.0.31_aarch64.deb
+dpkg -i opencode_2.1.4_aarch64.deb
 
 # 5. Verifikasi
-opencode --version    # -> opencode v2.0.31
+opencode --version    # -> opencode v2.1.4
 
 # 6. Bersihkan file installer
-rm -f opencode_2.0.31_aarch64.deb SHA256SUMS.txt
+rm -f opencode_2.1.4_aarch64.deb SHA256SUMS.txt
 ```
 
-> Versi v2 tersedia dari `2.0.0` sampai `2.0.31`, dan v1 dari `1.18.8`
+> Versi v2 tersedia dari `2.0.0` sampai `2.1.4`, dan v1 dari `1.18.8`
 > sampai `1.19.3`. Versi-versi itu tersebar di beberapa tag release —
 > untuk versi selain yang terbaru, ganti juga **tag** pada URL
 > (misalnya `2.0.27` ada di tag `Push261013`), atau pakai script
@@ -362,7 +366,7 @@ Kedua versi bisa dipasang bersamaan, tetapi nama perintahnya sama
 | `opencode1` | v1 | Tanpa *symlink* `opencode` |
 
 ```sh
-dpkg -i opencode_2.0.31_aarch64.deb      # v2  -> perintah `opencode`
+dpkg -i opencode_2.1.4_aarch64.deb      # v2  -> perintah `opencode`
 dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb   # v1 -> perintah `opencode1`
 ```
 

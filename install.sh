@@ -5,9 +5,11 @@
 # Repo panduan : https://github.com/keika-sy/install-opencode-termux
 # Build upstream: https://github.com/Hope2333/opencode-termux
 #
-# Versi bawaan (release Push261016, batch terbaru saat script ini ditulis):
-#   - OpenCode v2 : 2.0.31   (paket: opencode)
-#   - OpenCode v1 : 1.19.3   (paket: opencode1)
+# Versi bawaan (batch terbaru tiap generasi saat script ini ditulis):
+#   - OpenCode v2 : 2.1.4    (paket: opencode,  release Push261026)
+#   - OpenCode v1 : 1.19.3   (paket: opencode1, release Push261016)
+# Per generasi tag-nya bisa berbeda — versi terbaru tiap generasi tidak
+# selalu berada di release yang sama.
 #
 # Contoh pemakaian:
 #   bash install.sh                 # pasang v2 (bawaan)
@@ -26,10 +28,28 @@
 set -euo pipefail
 
 # --- Konfigurasi bawaan ------------------------------------------------------
-RELEASE_TAG="${OPENCODE_TAG:-Push261016}"
-V2_VERSION="2.0.31"
+V2_VERSION="2.1.4"
 V1_VERSION="1.19.3"
+V2_TAG="Push261026"
+V1_TAG="Push261016"
 UPSTREAM="Hope2333/opencode-termux"
+# --tag / $OPENCODE_TAG menimpa tag untuk SEMUA generasi sekaligus.
+TAG_OVERRIDE=0
+RELEASE_TAG=""
+if [ -n "${OPENCODE_TAG:-}" ]; then
+  RELEASE_TAG="$OPENCODE_TAG"; TAG_OVERRIDE=1
+fi
+
+# Tag efektif untuk satu generasi (memperhitungkan --tag override)
+gen_tag() {
+  if [ "$TAG_OVERRIDE" -eq 1 ]; then
+    printf '%s' "$RELEASE_TAG"
+  elif [ "$1" = "v2" ]; then
+    printf '%s' "$V2_TAG"
+  else
+    printf '%s' "$V1_TAG"
+  fi
+}
 
 # --- Opsi (diisi dari argumen) ------------------------------------------------
 TARGET="v2"            # v2 | v1 | both
@@ -63,7 +83,9 @@ Opsi:
   --both                Pasang v1 + v2 berdampingan
   --version <versi>     Pasang versi tertentu (tentukan juga --tag bila
                         versi itu bukan versi bawaan script ini)
-  --tag <tag>           Tag release upstream (bawaan: Push261016)
+  --tag <tag>           Paksa satu tag release upstream untuk semua
+                        generasi (bawaan: per generasi — v2 Push261026,
+                        v1 Push261016)
   --no-verify           Lewati verifikasi SHA256
   --force-conflicts     Teruskan --force-conflicts ke dpkg
   --keep                Simpan file .deb hasil unduhan (di folder saat ini)
@@ -81,6 +103,12 @@ Contoh:
   bash install.sh --check-update
   bash install.sh --update
   bash install.sh --uninstall all
+
+Catatan:
+  Tanpa --version, versi yang dipasang SELALU versi terbaru dari GitHub
+  API (mode auto); pin versi di script hanya cadangan bila API tidak
+  terjangkau. Opsi --tag menonaktifkan mode auto (memaksa satu tag
+  release dengan versi pin).
 EOF
 }
 
@@ -91,11 +119,11 @@ while [ $# -gt 0 ]; do
     --v1)   TARGET="v1" ;;
     --both) TARGET="both" ;;
     --version)
-      [ $# -ge 2 ] || die "--version butuh nilai, contoh: --version 2.0.31"
+      [ $# -ge 2 ] || die "--version butuh nilai, contoh: --version 2.1.4"
       CUSTOM_VERSION="$2"; shift ;;
     --tag)
       [ $# -ge 2 ] || die "--tag butuh nilai, contoh: --tag Push261016"
-      RELEASE_TAG="$2"; shift ;;
+      RELEASE_TAG="$2"; TAG_OVERRIDE=1; shift ;;
     --no-verify)       NO_VERIFY=1 ;;
     --force-conflicts) FORCE_CONFLICTS=1 ;;
     --keep)            KEEP_FILE=1 ;;
@@ -182,10 +210,18 @@ is_newer() {
 # releases (termasuk prerelease) dipindai dan versi tertinggi per generasi
 # diambil beserta tag release tempat file itu berada.
 fetch_latest() {
-  local json line tag ver
+  local json="" line tag ver attempt
   info "Menghubungi GitHub API untuk daftar releases ${UPSTREAM}..."
-  json="$(curl -fsSL --retry 3 -H 'Accept: application/vnd.github+json' "$API_URL")" \
-    || die "Gagal mengambil daftar releases dari GitHub API."
+  # GitHub kadang membalas 403 sesaat (rate limit IP bersama/NAT) — coba
+  # sampai 3x sebelum menyerah, jangan langsung gagal di percobaan pertama.
+  for attempt in 1 2 3; do
+    if json="$(curl -fsSL -H 'Accept: application/vnd.github+json' "$API_URL")"; then
+      break
+    fi
+    json=""
+    [ "$attempt" -lt 3 ] && sleep 3
+  done
+  [ -n "$json" ] || return 1
   tag=""
   while IFS= read -r line; do
     case "$line" in
@@ -203,8 +239,8 @@ fetch_latest() {
         fi ;;
     esac
   done < <(printf '%s\n' "$json")
-  [ -n "$LATEST_V2_VER" ] || die "Tidak menemukan paket opencode (v2) di daftar releases upstream."
-  [ -n "$LATEST_V1_VER" ] || die "Tidak menemukan paket opencode1 (v1) di daftar releases upstream."
+  [ -n "$LATEST_V2_VER" ] || return 1
+  [ -n "$LATEST_V1_VER" ] || return 1
 }
 
 # Versi paket yang terpasang untuk satu generasi (kosong bila tidak terpasang)
@@ -237,7 +273,7 @@ check_one() {
 }
 
 do_check_update() {
-  fetch_latest
+  fetch_latest || die "Gagal mengambil daftar releases dari GitHub API."
   echo "Status versi:"
   check_one "v2" "$LATEST_V2_VER" "$LATEST_V2_TAG" || true
   check_one "v1" "$LATEST_V1_VER" "$LATEST_V1_TAG" || true
@@ -247,15 +283,14 @@ do_check_update() {
 }
 
 do_update() {
-  fetch_latest
+  fetch_latest || die "Gagal mengambil daftar releases dari GitHub API."
   local updated=0 any=0 cur
   cur="$(installed_version "v2")"
   if [ -n "$cur" ]; then
     any=1
     if is_newer "$LATEST_V2_VER" "$cur"; then
       info "Memperbarui v2: $cur -> $LATEST_V2_VER (release $LATEST_V2_TAG)"
-      RELEASE_TAG="$LATEST_V2_TAG"
-      install_one "v2" "$LATEST_V2_VER"
+      install_one "v2" "$LATEST_V2_VER" "" "$LATEST_V2_TAG"
       updated=1
     else
       ok "v2 sudah versi terbaru ($cur)."
@@ -266,12 +301,11 @@ do_update() {
     any=1
     if is_newer "$LATEST_V1_VER" "$cur"; then
       info "Memperbarui v1: $cur -> $LATEST_V1_VER (release $LATEST_V1_TAG)"
-      RELEASE_TAG="$LATEST_V1_TAG"
       # Symlink 'opencode' hanya dipertahankan bila v2 tidak terpasang.
       if [ -z "$(installed_version "v2")" ]; then
-        install_one "v1" "$LATEST_V1_VER" "symlink"
+        install_one "v1" "$LATEST_V1_VER" "symlink" "$LATEST_V1_TAG"
       else
-        install_one "v1" "$LATEST_V1_VER"
+        install_one "v1" "$LATEST_V1_VER" "" "$LATEST_V1_TAG"
       fi
       updated=1
     else
@@ -289,33 +323,35 @@ do_update() {
 
 # --- Pasang satu generasi ------------------------------------------------------------
 # $1 = generasi (v1|v2)   $2 = versi   $3 = "symlink" bila v1 perlu alias opencode
+# $4 = tag release (opsional; bawaan: tag efektif generasi itu)
 install_one() {
-  local gen="$1" version="$2" make_symlink="${3:-}"
+  local gen="$1" version="$2" make_symlink="${3:-}" tag="${4:-}"
   local pkg file url sums_url workdir
   if [ "$gen" = "v2" ]; then pkg="opencode"; else pkg="opencode1"; fi
+  [ -n "$tag" ] || tag="$(gen_tag "$gen")"
   file="${pkg}_${version}_aarch64.deb"
-  url="https://github.com/${UPSTREAM}/releases/download/${RELEASE_TAG}/${file}"
-  sums_url="https://github.com/${UPSTREAM}/releases/download/${RELEASE_TAG}/SHA256SUMS.txt"
+  url="https://github.com/${UPSTREAM}/releases/download/${tag}/${file}"
+  sums_url="https://github.com/${UPSTREAM}/releases/download/${tag}/SHA256SUMS.txt"
 
   workdir="$(mktemp -d "${TMPDIR:-/tmp}/opencode-install.XXXXXX")"
   # shellcheck disable=SC2064  # $workdir memang harus diekspansi sekarang
   trap "rm -rf '$workdir'" EXIT
 
-  info "Mengunduh ${file} (release ${RELEASE_TAG})..."
+  info "Mengunduh ${file} (release ${tag})..."
   curl -fL --retry 3 --progress-bar -o "$workdir/$file" "$url" \
     || die "Unduhan gagal: $url"
 
   if [ "$NO_VERIFY" -eq 0 ]; then
     info "Memverifikasi SHA256..."
     curl -fsSL --retry 3 -o "$workdir/SHA256SUMS.txt" "$sums_url" \
-      || die "Gagal mengunduh SHA256SUMS.txt dari release ${RELEASE_TAG}."
+      || die "Gagal mengunduh SHA256SUMS.txt dari release ${tag}."
     if grep -F "  $file" "$workdir/SHA256SUMS.txt" > "$workdir/check.txt" 2>/dev/null \
        || grep -F " $file" "$workdir/SHA256SUMS.txt" > "$workdir/check.txt" 2>/dev/null; then
       ( cd "$workdir" && sha256sum -c check.txt ) \
         || die "Checksum TIDAK cocok untuk $file — pemasangan dibatalkan."
       ok "Checksum cocok."
     else
-      die "$file tidak ditemukan di SHA256SUMS.txt release ${RELEASE_TAG} — pemasangan dibatalkan (atau pakai --no-verify)."
+      die "$file tidak ditemukan di SHA256SUMS.txt release ${tag} — pemasangan dibatalkan (atau pakai --no-verify)."
     fi
   else
     warn "Verifikasi SHA256 dilewati (--no-verify)."
@@ -347,7 +383,8 @@ install_one() {
 
 # --- Main --------------------------------------------------------------------------------
 printf "${C_BOLD}OpenCode for Termux — Installer${C_RESET}\n"
-printf "Upstream: %s | Release: %s\n\n" "$UPSTREAM" "$RELEASE_TAG"
+printf "Upstream: %s | v2 %s (%s) | v1 %s (%s)\n\n" \
+  "$UPSTREAM" "$V2_VERSION" "$(gen_tag v2)" "$V1_VERSION" "$(gen_tag v1)"
 
 check_env
 
@@ -364,29 +401,41 @@ if [ "$MODE" = "update" ]; then
 fi
 
 # Tentukan versi final per generasi
-v2_ver="$V2_VERSION"
-v1_ver="$V1_VERSION"
+v2_ver="$V2_VERSION"; v2_tag=""
+v1_ver="$V1_VERSION"; v1_tag=""
 if [ -n "$CUSTOM_VERSION" ]; then
   case "$CUSTOM_VERSION" in
     1.*) v1_ver="$CUSTOM_VERSION"; [ "$TARGET" = "both" ] || TARGET="v1" ;;
     2.*) v2_ver="$CUSTOM_VERSION"; [ "$TARGET" = "both" ] || TARGET="v2" ;;
     *)   die "Format versi tidak dikenal: $CUSTOM_VERSION (harus diawali 1. atau 2.)" ;;
   esac
-  info "Versi kustom diminta: $CUSTOM_VERSION (tag: $RELEASE_TAG)"
+  info "Versi kustom diminta: $CUSTOM_VERSION (tag: $(gen_tag "$TARGET"))"
+elif [ "$TAG_OVERRIDE" -eq 1 ]; then
+  info "Tag dipaksa via --tag/$OPENCODE_TAG: memakai versi pin bawaan script."
+else
+  # Mode AUTO (bawaan): selalu ambil versi terbaru dari GitHub API.
+  # Pin di script hanya jadi cadangan bila API tidak terjangkau.
+  if fetch_latest; then
+    v2_ver="$LATEST_V2_VER"; v2_tag="$LATEST_V2_TAG"
+    v1_ver="$LATEST_V1_VER"; v1_tag="$LATEST_V1_TAG"
+    info "Mode auto: versi terbaru upstream — v2 $v2_ver ($v2_tag), v1 $v1_ver ($v1_tag)"
+  else
+    warn "GitHub API tidak terjangkau — memakai versi pin bawaan script (v2 $v2_ver, v1 $v1_ver)."
+  fi
 fi
 
 case "$TARGET" in
-  v2)   install_one "v2" "$v2_ver" ;;
-  v1)   install_one "v1" "$v1_ver" "symlink" ;;
+  v2)   install_one "v2" "$v2_ver" "" "$v2_tag" ;;
+  v1)   install_one "v1" "$v1_ver" "symlink" "$v1_tag" ;;
   both)
-    install_one "v2" "$v2_ver"
+    install_one "v2" "$v2_ver" "" "$v2_tag"
     # v1 berdampingan: JANGAN buat symlink — perintah 'opencode' milik v2,
     # v1 dipanggil dengan 'opencode1'.
     if [ "$FORCE_CONFLICTS" -eq 0 ]; then
       warn "Mode berdampingan: memasang v1 dengan --force-conflicts (metadata sebagian build v2 menyatakan konflik dengan opencode1)."
       FORCE_CONFLICTS=1
     fi
-    install_one "v1" "$v1_ver"
+    install_one "v1" "$v1_ver" "" "$v1_tag"
     ;;
 esac
 

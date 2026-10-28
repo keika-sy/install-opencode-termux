@@ -30,7 +30,7 @@
 - [Installation](#installation)
   - [Installer Script (Automatic)](#installer-script-automatic)
   - [Option A — OpenCode v1 (1.19.3)](#option-a--opencode-v1-1193)
-  - [Option B — OpenCode v2 (2.0.31)](#option-b--opencode-v2-2031)
+  - [Option B — OpenCode v2 (2.1.4)](#option-b--opencode-v2-214)
   - [Option C — Software Source (apt / pacman)](#option-c--software-source-apt--pacman)
 - [Usage](#usage)
 - [Data & Configuration Locations](#data--configuration-locations)
@@ -86,7 +86,7 @@ There are **two main versions** of OpenCode. Pick one that fits your needs:
 | Version | Command | Latest Version | `.deb` File |
 |:-------:|:-------:|:--------------:|:------------|
 | **v1**  | `opencode1` | `1.19.3`      | `opencode1_1.19.3_aarch64.deb` |
-| **v2**  | `opencode`  | `2.0.31`      | `opencode_2.0.31_aarch64.deb` |
+| **v2**  | `opencode`  | `2.1.4`      | `opencode_2.1.4_aarch64.deb` |
 
 | | v1 (1.18.x – 1.19.x) | v2 (2.0.x) |
 |---|---|---|
@@ -102,16 +102,20 @@ There are **two main versions** of OpenCode. Pick one that fits your needs:
 
 ## Installation
 
-All `.deb` files for the latest versions are hosted in the **Push261016** release.
+The `.deb` files for the latest versions are hosted per generation: **v2 in Push261026**, **v1 in Push261016** (the latest version of each generation is not always in the same release).
 
-> <https://github.com/Hope2333/opencode-termux/releases/tag/Push261016>
+> v2: <https://github.com/Hope2333/opencode-termux/releases/tag/Push261026>
+> v1: <https://github.com/Hope2333/opencode-termux/releases/tag/Push261016>
 
 ### Installer Script (Automatic)
 
 The fastest way: use the [`install.sh`](./install.sh) script from this
-repository. It downloads the package from the **Push261016** release,
-verifies its **SHA256** against the official `SHA256SUMS.txt`, installs it
-with `dpkg -i`, and verifies the result.
+repository. By default it **always fetches the latest version** of each
+generation straight from the GitHub API (auto mode — currently v2:
+**2.1.4** in Push261026, v1: **1.19.3** in Push261016; the versions
+pinned in the script are only a fallback if the API is unreachable). It
+then verifies its **SHA256** against the official `SHA256SUMS.txt`,
+installs it with `dpkg -i`, and verifies the result.
 
 **One-liner** (installs v2 — the default):
 
@@ -145,7 +149,7 @@ bash install.sh --help
 | `--v1` | Install OpenCode v1 only (+ `opencode` symlink) |
 | `--both` | Install v1 + v2 side by side |
 | `--version <ver>` | Install a specific version (adjust `--tag` too) |
-| `--tag <tag>` | Upstream release tag (default: `Push261016`) |
+| `--tag <tag>` | Force one release tag for all generations (default: per generation) |
 | `--no-verify` | Skip SHA256 verification |
 | `--force-conflicts` | Pass `--force-conflicts` to `dpkg` |
 | `--keep` | Keep the downloaded `.deb` file |
@@ -198,7 +202,7 @@ opencode --version    # -> 1.19.3
 rm -f opencode1_1.19.3_aarch64.deb SHA256SUMS.txt
 ```
 
-### Option B — OpenCode v2 (2.0.31)
+### Option B — OpenCode v2 (2.1.4)
 
 > **Note:** the v2 package ships a binary that is already named `opencode`,
 > no extra steps needed.
@@ -206,29 +210,29 @@ rm -f opencode1_1.19.3_aarch64.deb SHA256SUMS.txt
 ```sh
 # 1. Download
 cd ~
-curl -fL --retry 3 -o opencode_2.0.31_aarch64.deb \
-  "https://github.com/Hope2333/opencode-termux/releases/download/Push261016/opencode_2.0.31_aarch64.deb"
+curl -fL --retry 3 -o opencode_2.1.4_aarch64.deb \
+  "https://github.com/Hope2333/opencode-termux/releases/download/Push261026/opencode_2.1.4_aarch64.deb"
 
 # 2. Verify the checksum (recommended)
 curl -fsSL -o SHA256SUMS.txt \
-  "https://github.com/Hope2333/opencode-termux/releases/download/Push261016/SHA256SUMS.txt"
-grep "opencode_2.0.31_aarch64.deb" SHA256SUMS.txt | sha256sum -c -
+  "https://github.com/Hope2333/opencode-termux/releases/download/Push261026/SHA256SUMS.txt"
+grep "opencode_2.1.4_aarch64.deb" SHA256SUMS.txt | sha256sum -c -
 
 # 3. Inspect the package (optional)
-dpkg-deb -I opencode_2.0.31_aarch64.deb    # package metadata
-dpkg-deb -c opencode_2.0.31_aarch64.deb    # list files inside the package
+dpkg-deb -I opencode_2.1.4_aarch64.deb    # package metadata
+dpkg-deb -c opencode_2.1.4_aarch64.deb    # list files inside the package
 
 # 4. Install
-dpkg -i opencode_2.0.31_aarch64.deb
+dpkg -i opencode_2.1.4_aarch64.deb
 
 # 5. Verify
-opencode --version    # -> opencode v2.0.31
+opencode --version    # -> opencode v2.1.4
 
 # 6. Clean up the installer files
-rm -f opencode_2.0.31_aarch64.deb SHA256SUMS.txt
+rm -f opencode_2.1.4_aarch64.deb SHA256SUMS.txt
 ```
 
-> v2 versions range from `2.0.0` to `2.0.31`, and v1 from `1.18.8` to
+> v2 versions range from `2.0.0` to `2.1.4`, and v1 from `1.18.8` to
 > `1.19.3`. Those versions are spread across several release tags — for a
 > version other than the latest, change the **tag** in the URL as well
 > (e.g. `2.0.27` lives under the `Push261013` tag), or use the installer
@@ -360,7 +364,7 @@ Both versions can be installed together, but they use the same command name
 | `opencode1` | v1 | Without the `opencode` symlink |
 
 ```sh
-dpkg -i opencode_2.0.31_aarch64.deb      # v2  -> command `opencode`
+dpkg -i opencode_2.1.4_aarch64.deb      # v2  -> command `opencode`
 dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb   # v1 -> command `opencode1`
 ```
 
