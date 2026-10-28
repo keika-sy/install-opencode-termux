@@ -158,40 +158,59 @@ usage() {
   cat <<'EOF'
 Installer OpenCode for Termux (native bionic build)
 
+Script ini memasang OpenCode di Termux dari paket .deb resmi upstream
+Hope2333/opencode-termux: unduh -> verifikasi SHA256 -> pasang (dpkg).
+Tidak butuh root, tidak butuh proot/glibc.
+
 Pemakaian: bash install.sh [opsi]
 
-Opsi:
-  --v2                  Pasang OpenCode v2 (bawaan)
-  --v1                  Pasang OpenCode v1 saja
-  --both                Pasang v1 + v2 berdampingan
-  --version <versi>     Pasang versi tertentu (tentukan juga --tag bila
-                        versi itu bukan versi bawaan script ini)
-  --tag <tag>           Paksa satu tag release upstream untuk semua
-                        generasi (bawaan: per generasi — v2 Push261026,
-                        v1 Push261016)
-  --no-verify           Lewati verifikasi SHA256
-  --force-conflicts     Teruskan --force-conflicts ke dpkg
-  --keep                Simpan file .deb hasil unduhan (di folder saat ini)
+Mode:
+  (tanpa opsi)          Pasang OpenCode (bawaan: v2, versi terbaru)
   --check-update        Cek versi terbaru di upstream dan bandingkan
-                        dengan versi yang terpasang
+                        dengan versi yang terpasang (tidak memasang apa pun)
   --update              Perbarui paket yang terpasang ke versi terbaru
   --uninstall <target>  Copot paket: v1 | v2 | all
+                        (data & konfigurasi di ~/.config TIDAK ikut terhapus)
   -h, --help            Tampilkan bantuan ini
 
-Contoh:
-  bash install.sh
-  bash install.sh --v1
-  bash install.sh --both
-  bash install.sh --version 2.0.27 --tag Push261013
-  bash install.sh --check-update
-  bash install.sh --update
-  bash install.sh --uninstall all
+Pilihan versi (mode pasang):
+  --v2                  Pasang OpenCode v2 saja (bawaan)
+  --v1                  Pasang OpenCode v1 saja (+ symlink 'opencode')
+  --both                Pasang v1 + v2 berdampingan ('opencode' = v2,
+                        'opencode1' = v1; v1 dipasang --force-conflicts)
+  --version <versi>     Pasang versi tertentu, contoh: --version 2.0.27
+                        (generasi mengikuti awalan versi: 1.x -> v1, 2.x -> v2;
+                        tentukan juga --tag bila versi itu bukan versi bawaan)
+  --tag <tag>           Paksa satu tag release upstream untuk semua generasi
+                        (bawaan: per generasi — v2 Push261026, v1 Push261016)
 
-Catatan:
-  Tanpa --version, versi yang dipasang SELALU versi terbaru dari GitHub
-  API (mode auto); pin versi di script hanya cadangan bila API tidak
-  terjangkau. Opsi --tag menonaktifkan mode auto (memaksa satu tag
-  release dengan versi pin).
+Opsi lanjutan:
+  --no-verify           Lewati verifikasi SHA256 (tidak disarankan; bawaan:
+                        checksum .deb selalu dicocokkan dengan SHA256SUMS.txt
+                        resmi dan pemasangan dibatalkan bila tidak cocok)
+  --force-conflicts     Teruskan --force-conflicts ke dpkg (dipakai bila
+                        muncul error "conflicts with" antar-generasi)
+  --keep                Simpan file .deb hasil unduhan di folder saat ini
+                        (bawaan: file unduhan dihapus setelah terpasang)
+
+Variabel lingkungan:
+  OPENCODE_TAG          Sama seperti --tag (dipaksa untuk semua generasi)
+
+Contoh:
+  bash install.sh                       # pasang v2 terbaru
+  bash install.sh --v1                  # pasang v1 terbaru saja
+  bash install.sh --both                # v1 + v2 berdampingan
+  bash install.sh --version 2.0.27 --tag Push261013
+  bash install.sh --check-update        # ada update atau tidak?
+  bash install.sh --update              # pasang update-nya
+  bash install.sh --uninstall all       # copot semua
+
+Cara penentuan versi:
+  Tanpa --version/--tag, script SELALU mengambil versi terbaru tiap
+  generasi dari GitHub API (mode auto) — lengkap dengan tag release-nya,
+  karena versi terbaru tiap generasi tidak selalu berada di release yang
+  sama. Pin versi di script (v2 2.1.4, v1 1.19.3) hanya cadangan bila API
+  tidak terjangkau. Opsi --tag menonaktifkan mode auto.
 EOF
 }
 
@@ -274,6 +293,7 @@ do_uninstall() {
     dpkg -r opencode || warn "Paket opencode tidak terpasang / gagal dicopot."
   fi
   ok "Uninstall selesai."
+  info "Catatan: data & konfigurasi TIDAK ikut terhapus (~/.config/opencode dan ~/.config/opencode1 tetap ada). Hapus manual folder itu bila ingin bersih total."
   exit 0
 }
 
@@ -351,29 +371,45 @@ installed_version() {
   printf '%s' "$ver"
 }
 
-# Laporan status satu generasi: 0 = ada update, 1 = tidak ada / belum terpasang
+# Laporan status satu generasi: 0 = ada update, 1 = tidak ada / belum terpasang.
+# Sekaligus mengisi CHK_STATE: update | terbaru | belum (dipakai ringkasan akhir).
+CHK_STATE=""
 check_one() {
   local gen="$1" hver="$2" htag="$3" cur
   cur="$(installed_version "$gen")"
   if [ -z "$cur" ]; then
     printf '  %-4s : belum terpasang — versi terbaru %s (release %s)\n' "$gen" "$hver" "$htag"
+    CHK_STATE="belum"
     return 1
   fi
   if is_newer "$hver" "$cur"; then
     printf '  %-4s : %s -> %s (release %s) — UPDATE TERSEDIA\n' "$gen" "$cur" "$hver" "$htag"
+    CHK_STATE="update"
     return 0
   fi
   printf '  %-4s : %s — sudah versi terbaru\n' "$gen" "$cur"
+  CHK_STATE="terbaru"
   return 1
 }
 
 do_check_update() {
   fetch_latest || die "Tidak bisa menghubungi GitHub API setelah 3 percobaan — cek koneksi internet kamu. Info offline dari pin script: v2 $V2_VERSION ($V2_TAG), v1 $V1_VERSION ($V1_TAG)."
-  echo "Status versi:"
+  echo "Hasil pengecekan — versi terpasang dibandingkan versi terbaru upstream:"
+  local ada_update=0 ada_terpasang=0
   check_one "v2" "$LATEST_V2_VER" "$LATEST_V2_TAG" || true
+  [ "$CHK_STATE" = "update" ] && ada_update=1
+  [ "$CHK_STATE" != "belum" ] && ada_terpasang=1
   check_one "v1" "$LATEST_V1_VER" "$LATEST_V1_TAG" || true
+  [ "$CHK_STATE" = "update" ] && ada_update=1
+  [ "$CHK_STATE" != "belum" ] && ada_terpasang=1
   echo
-  info "Perbarui yang terpasang dengan: bash install.sh --update"
+  if [ "$ada_update" -eq 1 ]; then
+    info "Ada pembaruan tersedia. Pasang dengan: bash install.sh --update"
+  elif [ "$ada_terpasang" -eq 1 ]; then
+    ok "Semua generasi yang terpasang sudah versi terbaru."
+  else
+    info "Belum ada OpenCode yang terpasang. Pasang dengan: bash install.sh"
+  fi
   exit 0
 }
 
@@ -432,11 +468,16 @@ install_one() {
   # shellcheck disable=SC2064  # $workdir memang harus diekspansi sekarang
   trap "rm -rf '$workdir'" EXIT
 
+  if [ "$NO_VERIFY" -eq 1 ]; then
+    info "Target pemasangan: paket ${pkg} versi ${version} (generasi ${gen}, release ${tag}) — verifikasi SHA256 dilewati."
+  else
+    info "Target pemasangan: paket ${pkg} versi ${version} (generasi ${gen}, release ${tag}) — verifikasi SHA256 aktif."
+  fi
   info "Mengunduh ${file} (release ${tag})..."
   total=$(curl -sIL --connect-timeout 20 "$url" 2>/dev/null | grep -i '^content-length:' | tail -n 1 | tr -dc '0-9' || true)
   DL_ARGS=(--retry 3 --connect-timeout 20)
   dl_progress "$url" "$workdir/$file" "$file" "${total:-0}" \
-    || die "Unduhan gagal: $url"
+    || die "Unduhan gagal: $url — cek koneksi internet kamu, lalu jalankan ulang script ini."
 
   if [ "$NO_VERIFY" -eq 0 ]; then
     info "Memverifikasi SHA256..."
@@ -445,7 +486,7 @@ install_one() {
     if grep -F "  $file" "$workdir/SHA256SUMS.txt" > "$workdir/check.txt" 2>/dev/null \
        || grep -F " $file" "$workdir/SHA256SUMS.txt" > "$workdir/check.txt" 2>/dev/null; then
       ( cd "$workdir" && sha256sum -c check.txt ) \
-        || die "Checksum TIDAK cocok untuk $file — pemasangan dibatalkan."
+        || die "Checksum TIDAK cocok untuk $file — pemasangan dibatalkan. File kemungkinan korup saat diunduh; jalankan ulang script untuk mengunduh ulang."
       ok "Checksum cocok."
     else
       die "$file tidak ditemukan di SHA256SUMS.txt release ${tag} — pemasangan dibatalkan (atau pakai --no-verify)."
@@ -480,8 +521,9 @@ install_one() {
 
 # --- Main --------------------------------------------------------------------------------
 printf "${C_BOLD}OpenCode for Termux — Installer${C_RESET}\n"
-printf "Upstream: %s | v2 %s (%s) | v1 %s (%s)\n\n" \
+printf "Upstream: %s | v2 %s (%s) | v1 %s (%s)\n" \
   "$UPSTREAM" "$V2_VERSION" "$(gen_tag v2)" "$V1_VERSION" "$(gen_tag v1)"
+printf "Panduan lengkap: https://github.com/keika-sy/install-opencode-termux\n\n"
 
 check_env
 
@@ -546,3 +588,5 @@ if [ "$TARGET" = "v1" ] || [ "$TARGET" = "both" ]; then
 fi
 echo
 ok "Selesai! Jalankan 'opencode' untuk membuka TUI."
+info "Berikutnya: 'opencode --help' (bantuan perintah) | update: bash install.sh --update | copot: bash install.sh --uninstall all"
+info "Konfigurasi tersimpan di ~/.config/opencode (v2) dan ~/.config/opencode1 (v1) — tidak hilang saat update/uninstall paket."

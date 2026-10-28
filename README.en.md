@@ -36,6 +36,7 @@
 - [Data & Configuration Locations](#data--configuration-locations)
 - [Uninstall](#uninstall)
 - [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
 - [Technical Notes](#technical-notes)
 - [Credits](#credits)
 
@@ -88,11 +89,20 @@ There are **two main versions** of OpenCode. Pick one that fits your needs:
 | **v1**  | `opencode1` | `1.19.3`      | `opencode1_1.19.3_aarch64.deb` |
 | **v2**  | `opencode`  | `2.1.4`      | `opencode_2.1.4_aarch64.deb` |
 
-| | v1 (1.18.x – 1.19.x) | v2 (2.0.x) |
+| | v1 (1.18.x – 1.19.x) | v2 (2.0.x – 2.1.x) |
 |---|---|---|
 | **Status** | Maintenance line | Current mainline |
 | **Package prefix** | `opencode1` | `opencode` |
 | **Recommended** | For compatibility | For general use |
+
+**How do they differ in practice?** v2 is OpenCode's current release
+series — the newest features and fixes land here, and it is what most
+users should install. v1 is the 1.x series, still maintained upstream
+for compatibility (e.g. older configurations or workflows that have not
+moved to 2.x). So far, upstream's v1 builds stop at **1.19.3** — newer
+official OpenCode releases are only built as v2. The two generations
+keep their data and configuration fully separate, so switching
+generations never erases the other one's settings.
 
 > **Note:** v1 and v2 both want to use the `opencode` command. In general,
 > install **one of them**. If you want both at the same time, see
@@ -122,6 +132,28 @@ installs it with `dpkg -i`, and verifies the result.
 ```sh
 curl -fsSL https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh | bash
 ```
+
+#### How the script works
+
+1. **Environment check** — makes sure the device is `aarch64`, `dpkg`
+   is available, and `curl` is installed (it installs curl automatically
+   if missing).
+2. **Version resolution** — asks the GitHub API for the highest version
+   of each generation together with its release tag. If the API is
+   unreachable, the script falls back to its pinned versions and tells
+   you so.
+3. **Download** — the `.deb` is downloaded with a **progress bar that
+   adapts to your Termux screen width** (spinner + percent + size +
+   estimated time left). Downloads have firm timeouts and are retried
+   automatically, so they never hang silently.
+4. **SHA256 verification** — the file's checksum is matched against the
+   official `SHA256SUMS.txt` from the same release. A mismatch cancels
+   the installation.
+5. **Install & verify** — `dpkg -i`, then the script runs
+   `opencode --version` to prove the result actually works.
+
+No hidden steps: everything the script does is printed as `[INFO]` /
+`[ OK ]` / `[WARN]` lines in your terminal.
 
 **Other options:**
 
@@ -163,6 +195,20 @@ bash install.sh --help
 bash install.sh --check-update   # report: installed vs latest version
 bash install.sh --update         # download + verify + install the latest version
 ```
+
+Example `--check-update` output (v2 can be updated, v1 not installed):
+
+```text
+Hasil pengecekan — versi terpasang dibandingkan versi terbaru upstream:
+  v2   : 2.0.31 -> 2.1.4 (release Push261026) — UPDATE TERSEDIA
+  v1   : belum terpasang — versi terbaru 1.19.3 (release Push261016)
+
+[INFO] Ada pembaruan tersedia. Pasang dengan: bash install.sh --update
+```
+
+(The script's messages are in Indonesian.) A line reading
+`installed -> latest` means an update exists for that generation;
+`sudah versi terbaru` means it is already up to date.
 
 > The update check scans the upstream releases list via the GitHub API
 > (including *prereleases*, since upstream's newest batches are
@@ -312,6 +358,12 @@ If you created the symlink for v1, remove it too:
 rm -f "$PREFIX/bin/opencode"
 ```
 
+> **Note:** uninstalling only removes the package. Data and
+> configuration (`~/.config/opencode*`, `~/.local/share/opencode*`) are
+> **not** deleted — your history and settings stay safe if you install
+> again later. Delete those folders manually for a completely clean
+> removal.
+
 ---
 
 ## Troubleshooting
@@ -353,6 +405,44 @@ that message (usually when installing v1), add `--force-conflicts`:
 dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb
 ```
 
+### Downloads fail, stall, or the script seems to hang
+
+The `.deb` download is large (v2 is about 76 MB) and the GitHub API
+releases list is about 1–2 MB, so a connection dropping mid-download is
+the most common cause of failure. The installer script already handles
+this: firm per-attempt timeouts, automatic retries (up to 3), and a
+progress bar that shows whether the download is actually moving. If it
+still fails:
+
+1. Check your internet connection, then simply run the same script
+   again — re-running is safe and will not break an existing install.
+2. When installing manually, add `--retry 3` to your `curl` commands.
+3. If the GitHub API returns a transient error (rate limit on a shared
+   IP address), wait a few minutes and try again.
+
+### Checksum mismatch
+
+This means the downloaded file is **not identical** to the official one
+in the release — most often because the download was interrupted or
+corrupted. The script cancels the installation for safety. Run it again
+to download a fresh copy; do not use `--no-verify` unless you understand
+the risk and have checked the file yourself.
+
+### `opencode: command not found` after installing
+
+The package is installed but your shell has not picked up the new
+command yet. Close and reopen Termux, or run `hash -r`, then try again.
+If you installed **v1 only, manually**, remember its real command is
+`opencode1` — the `opencode` command only exists if the symlink was
+created (the installer script creates it automatically in `--v1` mode).
+
+### Unsupported architecture / storage full
+
+Upstream packages are only available for **aarch64** — 32-bit (`armv7l`)
+or `x86_64` devices cannot use this guide. For storage: the download
+plus the installed package needs ~200 MB free; free up space (if
+needed, `apt clean` and delete old `.deb` files), then retry.
+
 ### Installing v1 and v2 side by side
 
 Both versions can be installed together, but they use the same command name
@@ -369,6 +459,50 @@ dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb   # v1 -> command `openco
 ```
 
 Or simply run the installer script with `bash install.sh --both`.
+
+---
+
+## FAQ
+
+**Do I need root?**
+No. Every step runs as a regular Termux user.
+
+**Does updating erase my configuration and history?**
+No. An update only replaces the program package. Configuration, data,
+and session history live in `~/.config/opencode*` and
+`~/.local/share/opencode*`, separate from the package — the same is
+true when uninstalling (see [Uninstall](#uninstall)).
+
+**What is the difference between the script and manual install?**
+The end result is identical (the same official `.deb` via `dpkg -i`).
+The script automates picking the latest version per generation, the
+download, SHA256 verification, installation, and result verification —
+the manual route gives you full control over each step.
+
+**Why does SHA256 verification matter?**
+A checksum proves the file you downloaded is intact and identical to
+what upstream published — not corrupted by an interrupted download, and
+not altered by someone else in transit.
+
+**Can I install a specific older version (e.g. to roll back)?**
+Yes. Use the script's `--version` + `--tag` (example in the Installer
+Script section), or manually download the `.deb` from the matching
+release tag. Remember: the latest version of each generation may live
+under a different tag.
+
+**Do I need an internet connection?**
+Yes, to download the package and check for the latest version. Once
+installed, OpenCode itself still needs internet to talk to whichever AI
+model provider you use.
+
+**How large is the download?**
+The `.deb` packages are tens of MB (v2 2.1.4: about 76 MB), plus a
+small checksum file. Keep ~200 MB free so `dpkg` extraction has room
+to work.
+
+**Is this guide official from the OpenCode team?**
+No — it is a community guide built on Hope2333's Termux build. See
+[Credits](#credits).
 
 ---
 

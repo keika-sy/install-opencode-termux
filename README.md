@@ -36,6 +36,7 @@
 - [Lokasi Data & Konfigurasi](#lokasi-data--konfigurasi)
 - [Uninstall](#uninstall)
 - [Pemecahan Masalah](#pemecahan-masalah)
+- [Tanya Jawab (FAQ)](#tanya-jawab-faq)
 - [Catatan Teknis](#catatan-teknis)
 - [Kredit](#kredit)
 
@@ -88,11 +89,20 @@ Tersedia **dua versi utama** OpenCode. Pilih salah satu sesuai kebutuhan:
 | **v1** | `opencode1` | `1.19.3` | `opencode1_1.19.3_aarch64.deb` |
 | **v2** | `opencode` | `2.1.4` | `opencode_2.1.4_aarch64.deb` |
 
-| | v1 (1.18.x – 1.19.x) | v2 (2.0.x) |
+| | v1 (1.18.x – 1.19.x) | v2 (2.0.x – 2.1.x) |
 |---|---|---|
 | **Status** | Jalur pemeliharaan | Mainline terbaru |
 | **Prefix paket** | `opencode1` | `opencode` |
 | **Direkomendasikan** | Untuk kompatibilitas | Untuk umum |
+
+**Apa bedanya secara praktis?** v2 adalah seri rilis terbaru OpenCode —
+fitur dan perbaikan paling baru ada di sini, dan inilah yang sebaiknya
+dipasang kebanyakan pengguna. v1 adalah seri 1.x yang masih dipelihara
+upstream untuk kompatibilitas (misalnya konfigurasi atau alur kerja lama
+yang belum pindah ke 2.x). Sejauh ini build v1 upstream berhenti di
+**1.19.3** — rilis OpenCode resmi yang lebih baru dari itu hanya dibangun
+sebagai v2. Data dan konfigurasi keduanya terpisah total, jadi berpindah
+generasi tidak menghapus pengaturan generasi lainnya.
 
 > **Catatan:** v1 dan v2 sama-sama ingin memakai perintah `opencode`.
 > Umumnya pasang **salah satu**. Jika ingin keduanya sekaligus, lihat
@@ -122,6 +132,26 @@ cadangan bila API tidak terjangkau). Script lalu memverifikasi
 ```sh
 curl -fsSL https://raw.githubusercontent.com/keika-sy/install-opencode-termux/main/install.sh | bash
 ```
+
+#### Cara kerja script
+
+1. **Cek lingkungan** — memastikan perangkat `aarch64`, `dpkg` tersedia,
+   dan `curl` terpasang (dipasang otomatis bila belum ada).
+2. **Tentukan versi** — menanyakan GitHub API: versi tertinggi tiap
+   generasi beserta tag release-nya. Bila API tidak terjangkau, script
+   memakai pin versi bawaannya dan memberi tahu Anda.
+3. **Unduh** — file `.deb` diunduh dengan **progress bar yang
+   menyesuaikan lebar layar** Termux Anda (spinner + persen + ukuran +
+   perkiraan waktu selesai). Unduhan punya batas waktu yang tegas dan
+   dicoba ulang otomatis, jadi tidak akan menggantung tanpa kabar.
+4. **Verifikasi SHA256** — checksum file dicocokkan dengan
+   `SHA256SUMS.txt` resmi dari release yang sama. Tidak cocok =
+   pemasangan dibatalkan.
+5. **Pasang & verifikasi** — `dpkg -i`, lalu script menjalankan
+   `opencode --version` untuk membuktikan hasilnya benar-benar jalan.
+
+Tidak ada langkah tersembunyi: semua yang dilakukan script ditampilkan
+sebagai baris `[INFO]` / `[ OK ]` / `[WARN]` di terminal.
 
 **Pilihan lain:**
 
@@ -163,6 +193,19 @@ bash install.sh --help
 bash install.sh --check-update   # laporan: versi terpasang vs versi terbaru
 bash install.sh --update         # unduh + verifikasi + pasang versi terbaru
 ```
+
+Contoh keluaran `--check-update` (v2 bisa diperbarui, v1 belum terpasang):
+
+```text
+Hasil pengecekan — versi terpasang dibandingkan versi terbaru upstream:
+  v2   : 2.0.31 -> 2.1.4 (release Push261026) — UPDATE TERSEDIA
+  v1   : belum terpasang — versi terbaru 1.19.3 (release Push261016)
+
+[INFO] Ada pembaruan tersedia. Pasang dengan: bash install.sh --update
+```
+
+Baris `terpasang -> terbaru` berarti ada update untuk generasi itu;
+tulisan `sudah versi terbaru` berarti tidak ada yang perlu dilakukan.
 
 > Cek update memindai daftar releases upstream lewat GitHub API (termasuk
 > *prerelease*, karena batch terbaru upstream berstatus prerelease) dan
@@ -311,6 +354,12 @@ Jika sebelumnya membuat *symlink* untuk v1, hapus juga:
 rm -f "$PREFIX/bin/opencode"
 ```
 
+> **Catatan:** uninstall hanya mencopot paket. Data dan konfigurasi
+> (`~/.config/opencode*`, `~/.local/share/opencode*`) **tidak** ikut
+> terhapus — riwayat dan pengaturan Anda tetap aman bila suatu saat
+> memasang lagi. Hapus folder-folder itu secara manual bila ingin
+> bersih total.
+
 ---
 
 ## Pemecahan Masalah
@@ -355,6 +404,44 @@ gagal dengan pesan tersebut (umumnya saat memasang v1), tambahkan opsi
 dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb
 ```
 
+### Unduhan gagal, berhenti, atau script terasa menggantung
+
+Unduhan `.deb` berukuran besar (v2 sekitar 76 MB) dan daftar releases
+GitHub API sekitar 1–2 MB, jadi koneksi yang terputus di tengah jalan
+adalah penyebab kegagalan paling umum. Script installer sudah
+menanganinya: ada batas waktu per percobaan, percobaan diulang otomatis
+sampai 3x, dan progress bar menunjukkan unduhan benar-benar berjalan
+atau berhenti. Bila tetap gagal:
+
+1. Periksa koneksi internet, lalu jalankan ulang script yang sama —
+   aman diulang, pemasangan yang sudah jadi tidak akan rusak.
+2. Bila memakai cara manual, tambahkan `--retry 3` pada perintah `curl`.
+3. Bila GitHub API menjawab error sesaat (rate limit untuk alamat IP
+   bersama), tunggu beberapa menit lalu coba lagi.
+
+### Checksum tidak cocok
+
+Artinya file yang terunduh **tidak sama** dengan file resmi di release —
+penyebab tersering adalah unduhan terputus/korup. Script membatalkan
+pemasangan demi keamanan. Jalankan ulang agar file diunduh segar; jangan
+memakai `--no-verify` kecuali Anda paham risikonya dan sudah memeriksa
+file itu sendiri.
+
+### `opencode: command not found` setelah pemasangan
+
+Paket sudah terpasang tetapi shell belum mengenali perintah baru. Tutup
+dan buka lagi Termux, atau jalankan `hash -r`, lalu coba lagi. Bila Anda
+memasang **v1 saja secara manual**, ingat perintah aslinya adalah
+`opencode1` — perintah `opencode` hanya ada bila *symlink* dibuat
+(script installer membuatnya otomatis pada mode `--v1`).
+
+### Arsitektur tidak didukung / ruang penyimpanan penuh
+
+Paket upstream hanya tersedia untuk **aarch64** — perangkat 32-bit
+(`armv7l`) atau `x86_64` tidak bisa memakai panduan ini. Untuk ruang:
+unduhan + paket terpasang membutuhkan ± 200 MB kosong; kosongkan ruang
+(bila perlu `apt clean` dan hapus file `.deb` lama), lalu ulangi.
+
 ### Memasang v1 dan v2 berdampingan
 
 Kedua versi bisa dipasang bersamaan, tetapi nama perintahnya sama
@@ -371,6 +458,50 @@ dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb   # v1 -> perintah `openc
 ```
 
 Atau cukup jalankan script installer dengan `bash install.sh --both`.
+
+---
+
+## Tanya Jawab (FAQ)
+
+**Apakah perlu root?**
+Tidak. Semua langkah berjalan sebagai pengguna Termux biasa.
+
+**Apakah update menghapus konfigurasi dan riwayat saya?**
+Tidak. Update hanya mengganti paket program. Konfigurasi, data, dan
+riwayat sesi tersimpan di `~/.config/opencode*` dan
+`~/.local/share/opencode*`, terpisah dari paketnya — hal yang sama
+berlaku saat uninstall (lihat [Uninstall](#uninstall)).
+
+**Apa bedanya memasang lewat script dan manual?**
+Hasil akhirnya sama (paket `.deb` resmi yang sama lewat `dpkg -i`).
+Script mengotomatiskan pemilihan versi terbaru per generasi, unduhan,
+verifikasi SHA256, pemasangan, dan verifikasi hasil — cara manual
+memberi Anda kendali penuh per langkah.
+
+**Kenapa verifikasi SHA256 penting?**
+Checksum membuktikan file yang Anda unduh utuh dan identik dengan yang
+diterbitkan upstream — bukan file rusak karena unduhan terputus, dan
+bukan file yang diubah pihak lain di tengah jalan.
+
+**Bisakah memasang versi lama tertentu (misalnya untuk rollback)?**
+Bisa. Pakai `--version` + `--tag` pada script (contoh di bagian
+Script Installer), atau unduh manual `.deb` dari tag release yang
+sesuai. Ingat: versi terbaru tiap generasi bisa berada di tag yang
+berbeda.
+
+**Apakah harus terhubung ke internet?**
+Ya, untuk mengunduh paket dan memeriksa versi terbaru. Setelah
+terpasang, OpenCode sendiri tetap butuh internet untuk berbicara dengan
+penyedia model AI yang Anda pakai.
+
+**Berapa ukuran yang diunduh?**
+Paket `.deb` berukuran puluhan MB (v2 2.1.4: sekitar 76 MB), ditambah
+file checksum kecil. Siapkan ruang kosong ± 200 MB agar proses
+ekstraksi `dpkg` leluasa.
+
+**Panduan ini resmi dari tim OpenCode?**
+Bukan — ini panduan komunitas di atas build Termux dari Hope2333.
+Lihat [Kredit](#kredit).
 
 ---
 
