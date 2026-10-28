@@ -6,7 +6,7 @@
 
 # OpenCode for Termux
 
-**Install OpenCode on Termux easily and cleanly**
+**Install OpenCode on Termux, minus the headache**
 
 [![GitHub repo size](https://img.shields.io/github/repo-size/keika-sy/install-opencode-termux?style=for-the-badge&color=4B8BBE&label=Repo%20Size)](https://github.com/keika-sy/install-opencode-termux)
 [![Platform](https://img.shields.io/badge/Platform-Termux-000000?style=for-the-badge&logo=android&logoColor=white)](https://termux.dev)
@@ -15,8 +15,8 @@
 
 <br/>
 
-> **Native Bionic Build** — a pure single ELF file, no glibc, no proot, no container.
-> Lightweight, fast, and runs natively on Termux.
+> This is a **native bionic build** — one pure ELF file. No glibc, no proot,
+> no container. That's why it's light and just runs.
 
 </div>
 
@@ -44,26 +44,28 @@
 
 ## About
 
-This repository provides a **complete installation guide for OpenCode on Termux**.
+The short version: this repo shows you how to install **OpenCode** (the AI
+coding agent that lives in your terminal) on **Termux**, and it comes with
+an installer script that does the boring parts for you.
 
-OpenCode is an AI coding agent that runs in the terminal. For Termux, there is
-a dedicated **"native bionic"** build from
+OpenCode doesn't ship a Termux build itself. Luckily,
 [`Hope2333/opencode-termux`](https://github.com/Hope2333/opencode-termux)
-that:
+builds a special "native bionic" variant, and this guide is built on top
+of that work. What makes this build nice:
 
 | Feature | Description |
 |---------|-------------|
 | **Zero glibc** | A single Bionic ELF file, no glibc dependency |
 | **Built-in TUI** | Full terminal interface via `libopentui.so` |
-| **No proot** | No container or chroot needed |
-| **Fast** | Directly executed, no wrapper overhead |
-| **Easy to install** | Just `dpkg -i` a single file, or use the installer script |
+| **No proot** | No container or chroot needed at all |
+| **Fast** | Runs directly, no wrapper overhead |
+| **Easy to install** | Just `dpkg -i` one file, or use the installer script |
 
 ---
 
 ## Prerequisites
 
-Before you start, make sure your device meets these requirements:
+Make sure your device ticks these boxes first:
 
 | Requirement | Value | How to Check |
 |-------------|-------|--------------|
@@ -78,11 +80,14 @@ Before you start, make sure your device meets these requirements:
 uname -m
 ```
 
+If `uname -m` prints anything else, stop here — the packages simply only
+exist for `aarch64`.
+
 ---
 
 ## Choosing a Version
 
-There are **two main versions** of OpenCode. Pick one that fits your needs:
+There are **two generations** of OpenCode you can install. The gist:
 
 | Version | Command | Latest Version | `.deb` File |
 |:-------:|:-------:|:--------------:|:------------|
@@ -93,39 +98,47 @@ There are **two main versions** of OpenCode. Pick one that fits your needs:
 |---|---|---|
 | **Status** | Maintenance line | Current mainline |
 | **Package prefix** | `opencode1` | `opencode` |
-| **Recommended** | For compatibility | For general use |
+| **Good for** | Compatibility | Most people |
 
-**How do they differ in practice?** v2 is OpenCode's current release
-series — the newest features and fixes land here, and it is what most
-users should install. v1 is the 1.x series, still maintained upstream
-for compatibility (e.g. older configurations or workflows that have not
-moved to 2.x). So far, upstream's v1 builds stop at **1.19.3** — newer
-official OpenCode releases are only built as v2. The two generations
-keep their data and configuration fully separate, so switching
-generations never erases the other one's settings.
+So what's the actual difference? v2 is OpenCode's current release series —
+new features and fixes land there first, so for everyday use **just pick
+v2**. v1 is the older 1.x series, still maintained upstream for people who
+need compatibility (say, an older setup that hasn't moved on yet). So far
+upstream's v1 builds stop at **1.19.3**; anything newer than that only
+exists as v2. The two generations also keep their data and configuration
+completely separate, so switching generations never wipes the other one's
+settings.
 
-> **Note:** v1 and v2 both want to use the `opencode` command. In general,
-> install **one of them**. If you want both at the same time, see
-> [this section](#installing-v1-and-v2-side-by-side).
+> **One thing worth knowing:** v1 and v2 both want the `opencode` command
+> name. Normally you install **one of them**. If you really want both side
+> by side, see [this section](#installing-v1-and-v2-side-by-side).
+
+> ⚠️ **On Android 15/16? Read this first:** **2.1.4** currently has a bug
+> that crashes its TUI on launch under Android 15/16. If that's your
+> device, install **2.0.24** for now. Details in
+> [Troubleshooting](#v2-214-crashes-on-android-1516-pointer-exceeds-safe-integer-range).
 
 ---
 
 ## Installation
 
-The `.deb` files for the latest versions are hosted per generation: **v2 in Push261026**, **v1 in Push261016** (the latest version of each generation is not always in the same release).
+The latest `.deb` files live in per-generation releases: **v2 in
+Push261026**, **v1 in Push261016**. Yes, different tags — the newest
+version of each generation doesn't always show up in the same release.
 
 > v2: <https://github.com/Hope2333/opencode-termux/releases/tag/Push261026>
 > v1: <https://github.com/Hope2333/opencode-termux/releases/tag/Push261016>
 
 ### Installer Script (Automatic)
 
-The fastest way: use the [`install.sh`](./install.sh) script from this
-repository. By default it **always fetches the latest version** of each
-generation straight from the GitHub API (auto mode — currently v2:
-**2.1.4** in Push261026, v1: **1.19.3** in Push261016; the versions
-pinned in the script are only a fallback if the API is unreachable). It
-then verifies its **SHA256** against the official `SHA256SUMS.txt`,
-installs it with `dpkg -i`, and verifies the result.
+The fastest route is the [`install.sh`](./install.sh) script from this
+repo. You run it, it does the thinking: it asks the GitHub API what the
+latest version of each generation is (auto mode — right now v2: **2.1.4**
+in Push261026, v1: **1.19.3** in Push261016; the versions pinned inside
+the script are just a fallback for when the API can't be reached),
+downloads the file, matches its **SHA256** against the official
+`SHA256SUMS.txt`, installs it with `dpkg -i`, and finally proves the
+result actually runs.
 
 **One-liner** (opens the interactive menu — pick an action by number):
 
@@ -154,37 +167,36 @@ Status terpasang saat ini: v2 = 2.0.31 | v1 = belum terpasang
 Pilih (0-7):
 ```
 
-(The menu itself is in Indonesian.) Type the number and press Enter.
-After an action finishes you return to the menu — so checking for
-updates, installing them, and uninstalling can all happen in one
-session. The menu reads input straight from the terminal, so it works
-with the `curl | bash` one-liner above too.
+(Yes, the menu itself is in Indonesian.) Type the number, hit Enter. When
+an action finishes you're back at the menu — so checking for updates,
+installing them, and uninstalling can all happen in one session without
+re-running the script. The menu reads input straight from the terminal,
+which is why it works even through the `curl | bash` one-liner above.
 
-To skip the menu and install directly (e.g. for automation), pass any
-argument — for example `--v2` — or set `OPENCODE_NO_MENU=1`. Without a
-terminal (pipe/CI), the script installs v2 directly, as before.
+Don't want the menu? Easy: pass any argument (like `--v2`) and the script
+goes straight to work without asking anything. Or set
+`OPENCODE_NO_MENU=1`. And with no terminal attached (pipe/CI), it quietly
+installs v2 directly, exactly like before.
 
 #### How the script works
 
-1. **Environment check** — makes sure the device is `aarch64`, `dpkg`
-   is available, and `curl` is installed (it installs curl automatically
-   if missing).
-2. **Version resolution** — asks the GitHub API for the highest version
-   of each generation together with its release tag. If the API is
-   unreachable, the script falls back to its pinned versions and tells
-   you so.
-3. **Download** — the `.deb` is downloaded with a **progress bar that
-   adapts to your Termux screen width** (spinner + percent + size +
-   estimated time left). Downloads have firm timeouts and are retried
-   automatically, so they never hang silently.
+1. **Environment check** — makes sure the device is `aarch64`, `dpkg` is
+   there, and `curl` is installed (it installs curl for you if not).
+2. **Version resolution** — asks the GitHub API for the highest version of
+   each generation and which release tag it lives in. If the API is
+   unreachable, it falls back to its pinned versions and tells you.
+3. **Download** — the `.deb` comes down with a **progress bar that adapts
+   to your Termux screen width** (spinner, percent, size, and an estimated
+   time left). Downloads have firm timeouts and retry automatically, so
+   nothing hangs silently.
 4. **SHA256 verification** — the file's checksum is matched against the
-   official `SHA256SUMS.txt` from the same release. A mismatch cancels
-   the installation.
+   official `SHA256SUMS.txt` from the same release. Mismatch = install
+   cancelled.
 5. **Install & verify** — `dpkg -i`, then the script runs
-   `opencode --version` to prove the result actually works.
+   `opencode --version` to prove the result really works.
 
-No hidden steps: everything the script does is printed as `[INFO]` /
-`[ OK ]` / `[WARN]` lines in your terminal.
+No hidden steps: everything it does shows up as `[INFO]` / `[ OK ]` /
+`[WARN]` lines in your terminal.
 
 **Other options:**
 
@@ -238,19 +250,20 @@ Hasil pengecekan — versi terpasang dibandingkan versi terbaru upstream:
 [INFO] Ada pembaruan tersedia. Pasang dengan: bash install.sh --update
 ```
 
-(The script's messages are in Indonesian.) A line reading
-`installed -> latest` means an update exists for that generation;
-`sudah versi terbaru` means it is already up to date.
+(The script's messages are in Indonesian.) Reading it is easy: a line
+like `installed -> latest` means an update exists for that generation;
+`sudah versi terbaru` means it's already up to date.
 
-> The update check scans the upstream releases list via the GitHub API
-> (including *prereleases*, since upstream's newest batches are
-> prereleases) and picks the highest version per generation together with
-> its release tag.
+> About the update check: the script scans the upstream releases list via
+> the GitHub API (including *prereleases*, since upstream's newest batches
+> are prereleases) and picks the highest version per generation together
+> with its release tag. That's how it doesn't fall behind.
 
 ### Option A — OpenCode v1 (1.19.3)
 
-> **Note:** the v1 package installs a binary named `opencode1`. A symlink is
-> created so it can be invoked with the `opencode` command.
+> The v1 package installs a binary called `opencode1`. To also call it
+> with the plain `opencode` command, a symlink is created (step 5 below).
+> The installer script does this automatically.
 
 ```sh
 # 1. Download
@@ -282,8 +295,8 @@ rm -f opencode1_1.19.3_aarch64.deb SHA256SUMS.txt
 
 ### Option B — OpenCode v2 (2.1.4)
 
-> **Note:** the v2 package ships a binary that is already named `opencode`,
-> no extra steps needed.
+> The v2 package ships a binary that's already named `opencode`, so
+> there are no extra steps at all.
 
 ```sh
 # 1. Download
@@ -314,11 +327,13 @@ rm -f opencode_2.1.4_aarch64.deb SHA256SUMS.txt
 > `1.19.3`. Those versions are spread across several release tags — for a
 > version other than the latest, change the **tag** in the URL as well
 > (e.g. `2.0.27` lives under the `Push261013` tag), or use the installer
-> script with `--version` + `--tag`.
+> script with `--version` + `--tag`. That's also how you *downgrade* —
+> for example dropping to `2.0.24` because of the 2.1.4 bug on
+> Android 15/16.
 
 ### Option C — Software Source (apt / pacman)
 
-Besides manual install, there is an official package source for
+Besides manual install, there's an official package source for
 installing/updating via `apt` or `pacman`.
 
 **One-line install** (set up the source and install at once):
@@ -366,8 +381,10 @@ opencode --help       # show help
 | v1 | `~/.config/opencode1` | `~/.local/share/opencode1` |
 | v2 | `~/.config/opencode` | `~/.local/share/opencode` |
 
-> Each version keeps its data and configuration **separate**, so they never
-> interfere with each other.
+Each generation keeps its data and configuration in its own place, so
+they never step on each other. It's also why updates, downgrades, and
+even uninstalls never touch your settings — only the program package
+itself gets replaced.
 
 ---
 
@@ -390,15 +407,54 @@ If you created the symlink for v1, remove it too:
 rm -f "$PREFIX/bin/opencode"
 ```
 
-> **Note:** uninstalling only removes the package. Data and
-> configuration (`~/.config/opencode*`, `~/.local/share/opencode*`) are
-> **not** deleted — your history and settings stay safe if you install
-> again later. Delete those folders manually for a completely clean
-> removal.
+> **Note:** uninstalling only removes the package. Your data and
+> configuration (`~/.config/opencode*`, `~/.local/share/opencode*`)
+> stay put — history and settings are safe if you ever install again.
+> Delete those folders by hand if you want a completely clean removal.
 
 ---
 
 ## Troubleshooting
+
+### v2 2.1.4 crashes on Android 15/16: `Pointer exceeds safe integer range`
+
+If `opencode` dies the moment you open it, with an error like this:
+
+```text
+Starting background server...
+Error: Pointer exceeds safe integer range
+    at createContext (...)
+    at Tui.run (...)
+```
+
+...that's a **real upstream bug**, not your phone's fault and not a bad
+install (`opencode --version` still works fine — only the TUI dies).
+It's already reported in
+[issue #43](https://github.com/Hope2333/opencode-termux/issues/43) and
+[issue #45](https://github.com/Hope2333/opencode-termux/issues/45).
+
+The short version of the root cause: on Android 15/16, the system
+allocator tags the top byte of heap pointers, which makes pointer
+values bigger than JavaScript's maximum safe integer. OpenTUI's FFI
+layer (the TUI library OpenCode uses) isn't ready for pointers that
+big and gives up. Android ≤ 14 doesn't have this problem.
+
+**Workaround for now: drop back to 2.0.24**, which is confirmed to run
+fine on Android 16:
+
+```sh
+bash install.sh --version 2.0.24 --tag Push261013
+```
+
+Or manually download `opencode_2.0.24_aarch64.deb` from the
+`Push261013` release and `dpkg -i` it like usual — `.deb` packages can
+simply be overwritten with an older version (downgrading is a normal
+dpkg thing, and your data isn't touched). Once upstream ships a fix,
+just `bash install.sh --update` to climb back to the latest.
+
+One note: non-TUI modes like `opencode serve` and `opencode run "..."`
+probably still work on 2.1.4 since the crash lives in the TUI path,
+but that hasn't been officially verified.
 
 ### Older Android: "Bad system call" (SIGSYS)
 
@@ -406,7 +462,7 @@ On older Android (reported case: Android 12, generally ≤ 14), the system
 seccomp policy can block the `close_range` syscall (nr 436), so OpenCode
 dies at startup with *"Bad system call"*.
 
-**Good news:** recent native packages ship the
+**The good news:** recent native packages ship the
 `libopencode-crhandler.so` shim **inside the package**
 ([issue #36](https://github.com/Hope2333/opencode-termux/issues/36) fix —
 older package versions were repacked in the Push261013 release, and all
@@ -430,8 +486,8 @@ export LD_PRELOAD="$PREFIX/lib/libopencode-crshim.so"
 
 ### Error: "opencode conflicts with opencode1"
 
-Some v2 builds carry `Conflicts: opencode1` metadata. If `dpkg -i` fails with
-that message (usually when installing v1), add `--force-conflicts`:
+Some v2 builds carry `Conflicts: opencode1` metadata. If `dpkg -i` fails
+with that message (usually when installing v1), add `--force-conflicts`:
 
 ```sh
 dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb
@@ -439,46 +495,46 @@ dpkg -i --force-conflicts opencode1_1.19.3_aarch64.deb
 
 ### Downloads fail, stall, or the script seems to hang
 
-The `.deb` download is large (v2 is about 76 MB) and the GitHub API
-releases list is about 1–2 MB, so a connection dropping mid-download is
-the most common cause of failure. The installer script already handles
-this: firm per-attempt timeouts, automatic retries (up to 3), and a
-progress bar that shows whether the download is actually moving. If it
-still fails:
+The usual suspect is a connection dropping mid-download — the `.deb` is
+big (v2 is about 76 MB) and the GitHub API releases list is about
+1–2 MB. The installer script already expects this: firm per-attempt
+timeouts, automatic retries (up to 3), and a progress bar that shows
+whether the download is actually moving or stuck. If it still fails:
 
-1. Check your internet connection, then simply run the same script
-   again — re-running is safe and will not break an existing install.
+1. Check your internet connection, then just run the same script again.
+   Re-running is safe and won't break an existing install.
 2. When installing manually, add `--retry 3` to your `curl` commands.
-3. If the GitHub API returns a transient error (rate limit on a shared
-   IP address), wait a few minutes and try again.
+3. If the GitHub API throws a transient error (rate limit on a shared IP
+   address), wait a few minutes and try again.
 
 ### Checksum mismatch
 
-This means the downloaded file is **not identical** to the official one
-in the release — most often because the download was interrupted or
-corrupted. The script cancels the installation for safety. Run it again
-to download a fresh copy; do not use `--no-verify` unless you understand
-the risk and have checked the file yourself.
+This means the file you downloaded is **not identical** to the official
+one in the release — most often because the download got interrupted or
+corrupted. The script cancels the installation for safety, which is the
+right call. Run it again to grab a fresh copy. Don't reach for
+`--no-verify` unless you understand the risk and have checked the file
+yourself.
 
 ### `opencode: command not found` after installing
 
-The package is installed but your shell has not picked up the new
+The package is installed, but your shell hasn't picked up the new
 command yet. Close and reopen Termux, or run `hash -r`, then try again.
 If you installed **v1 only, manually**, remember its real command is
 `opencode1` — the `opencode` command only exists if the symlink was
-created (the installer script creates it automatically in `--v1` mode).
+created (the installer script makes it automatically in `--v1` mode).
 
 ### Unsupported architecture / storage full
 
-Upstream packages are only available for **aarch64** — 32-bit (`armv7l`)
-or `x86_64` devices cannot use this guide. For storage: the download
-plus the installed package needs ~200 MB free; free up space (if
-needed, `apt clean` and delete old `.deb` files), then retry.
+Upstream packages only exist for **aarch64** — 32-bit (`armv7l`) or
+`x86_64` devices can't use this guide, full stop. For storage: the
+download plus the installed package needs ~200 MB free. Free up space
+(if needed, `apt clean` and delete old `.deb` files), then retry.
 
 ### Installing v1 and v2 side by side
 
-Both versions can be installed together, but they use the same command name
-(`opencode`), so one of them has to use a different name:
+Both can be installed together, but they share the same command name
+(`opencode`), so one of them has to go by a different name:
 
 | Command | Version | How |
 |---------|---------|-----|
@@ -497,43 +553,50 @@ Or simply run the installer script with `bash install.sh --both`.
 ## FAQ
 
 **Do I need root?**
-No. Every step runs as a regular Termux user.
+Nope. Everything runs as a regular Termux user.
 
 **Does updating erase my configuration and history?**
-No. An update only replaces the program package. Configuration, data,
-and session history live in `~/.config/opencode*` and
-`~/.local/share/opencode*`, separate from the package — the same is
-true when uninstalling (see [Uninstall](#uninstall)).
+No. Updates (and downgrades, and uninstalls) only replace the program
+package. Your configuration, data, and session history live in
+`~/.config/opencode*` and `~/.local/share/opencode*`, separate from the
+package — see [Uninstall](#uninstall) too.
 
-**What is the difference between the script and manual install?**
-The end result is identical (the same official `.deb` via `dpkg -i`).
-The script automates picking the latest version per generation, the
-download, SHA256 verification, installation, and result verification —
-the manual route gives you full control over each step.
+**Which version should I install?**
+v2, unless you have a specific reason to stay on 1.x. One exception,
+for now: if you're on **Android 15/16**, grab **2.0.24** instead,
+because 2.1.4 currently has a TUI crash bug there (details under
+Troubleshooting).
+
+**What's the difference between the script and manual install?**
+The end result is exactly the same official `.deb`, installed with
+`dpkg -i` either way. The script just does the boring steps for you:
+picking the latest version per generation, downloading, verifying the
+SHA256, installing, and proving it runs. The manual route gives you
+full control over each step.
 
 **Why does SHA256 verification matter?**
 A checksum proves the file you downloaded is intact and identical to
 what upstream published — not corrupted by an interrupted download, and
-not altered by someone else in transit.
+not tampered with by someone in between.
 
 **Can I install a specific older version (e.g. to roll back)?**
-Yes. Use the script's `--version` + `--tag` (example in the Installer
-Script section), or manually download the `.deb` from the matching
-release tag. Remember: the latest version of each generation may live
-under a different tag.
+Absolutely — a `.deb` can simply be overwritten with an older version;
+downgrading is a normal thing. Use the script's `--version` + `--tag`
+(example in the Installer Script section), or grab the `.deb` manually
+from the matching release tag. Just remember the latest version of each
+generation may live under a different tag.
 
 **Do I need an internet connection?**
-Yes, to download the package and check for the latest version. Once
+Yes — to download the package and to check for the latest version. Once
 installed, OpenCode itself still needs internet to talk to whichever AI
 model provider you use.
 
 **How large is the download?**
-The `.deb` packages are tens of MB (v2 2.1.4: about 76 MB), plus a
-small checksum file. Keep ~200 MB free so `dpkg` extraction has room
-to work.
+The `.deb` packages are tens of MB (v2 2.1.4: about 76 MB), plus a small
+checksum file. Keep ~200 MB free so `dpkg` extraction has room to work.
 
 **Is this guide official from the OpenCode team?**
-No — it is a community guide built on Hope2333's Termux build. See
+No — it's a community guide built on Hope2333's Termux build. See
 [Credits](#credits).
 
 ---
@@ -542,7 +605,7 @@ No — it is a community guide built on Hope2333's Termux build. See
 
 ### Package Families
 
-The upstream repository provides several package variants:
+The upstream repo provides several package variants:
 
 | Family | Package | Description |
 |--------|---------|-------------|
@@ -551,17 +614,17 @@ The upstream repository provides several package variants:
 | compressed (UPX) | `opencode-compressed` / `opencode1-compressed` | UPX, smaller, slower startup |
 | standalone | `opencode-wrapper-standalone` | Frozen version for rollback |
 
-> This guide focuses on the **native** family (recommended). Within one
-> generation, the native / wrapper / compressed families are **mutually
-> exclusive** — install exactly one. Across generations (`opencode1*`
-> with `opencode*`) they may coexist.
+> This guide focuses on the **native** family (the recommended one).
+> Within one generation, the native / wrapper / compressed families are
+> **mutually exclusive** — install exactly one. Across generations
+> (`opencode1*` with `opencode*`) they can coexist just fine.
 
 ### Package Naming History
 
 - `opencode-glibc` → `opencode-wrapper` (renamed, with an automatic upgrade
   path via `Replaces`/`Breaks`).
-- v1 packages now use the `opencode1*` prefix so they can coexist with the v2
-  `opencode` package on the same device.
+- v1 packages now use the `opencode1*` prefix so they can sit next to the
+  v2 `opencode` package on the same device.
 
 ---
 
@@ -571,9 +634,9 @@ The upstream repository provides several package variants:
 - **Termux build** — [Hope2333/opencode-termux](https://github.com/Hope2333/opencode-termux)
 - **Installation wiki** — [hope2333.github.io](https://hope2333.github.io/wiki/opencode-termux/)
 
-> **Disclaimer:** This repository is a **community installation guide** for
-> running OpenCode on Termux. It is **not** built by the OpenCode team, is
-> **not affiliated** with the OpenCode team, and is **not endorsed** by them.
+> **Disclaimer:** This repo is a **community installation guide** for
+> running OpenCode on Termux. It is **not** made by the OpenCode team, is
+> **not affiliated** with them, and is **not endorsed** by them.
 
 <div align="center">
 
